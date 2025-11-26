@@ -1,0 +1,47 @@
+1. 技术架构更新 (Tech Stack Update)
+为了支持视频播放和处理，技术栈需增加以下模块：
+
+后端 (Backend - Python):
+核心库: 依然使用 FastAPI/Flask。
+视频处理: 必须引入 OpenCV (cv2) 或 ffmpeg-python。
+用途 1 (元数据): 读取视频的 Creation Time 和 Duration，确保视频能正确插入到漫展的时间线中。
+用途 2 (缩略图): 浏览器无法高效加载几百个视频文件来生成预览。后端必须在扫描时，自动截取视频的第一帧保存为 .jpg 缓存，用于前端列表展示。
+流式传输 (Streaming): 后端接口需支持 Range Requests (HTTP 206 Partial Content)，以便在网页上流畅拖动进度条，而不是一次性下载整个 500MB 的视频。
+前端 (Frontend - React):
+视频播放器: 使用原生的 HTML5 <video> 标签，或者轻量级封装库如 react-player。
+2. 核心算法逻辑 (Core Logic)
+A. 统一时间线 (Unified Timeline)
+漫展中，用户通常是“拍几张照片 -> 录一段视频 -> 继续拍照片”。算法必须将它们视为同一类实体处理：
+
+扫描器: 同时扫描图片 (.jpg, .png, .heic) 和视频 (.mp4, .mov, .avi)。
+归一化: 无论是视频还是图片，都提取出 timestamp (时间戳)。
+聚类 (Clustering): 视频和图片依据时间戳混合排序。如果一个视频是在漫展期间拍摄的，它必须被归类到那个“漫展 Event”相册中，而不是被单独隔离。
+B. 视频 vs 截图识别
+相机视频: 通常包含完整的元数据，且文件体积大。归入 Event。
+录屏/下载视频: 如果元数据缺失或来源于特定文件夹，归入 Screenshots/Downloads。
+3. 数据模型更新 (Database Schema)
+在 Photo 表中增加字段以支持视频：
+
+MediaItem Table (原 Photo 表):
+type: string ('image' 或 'video')
+duration: int (视频时长，秒，图片则为 null)
+thumbnail_path: string (关键: 指向后端生成的视频封面图路径)
+4. 界面功能与流程 (UI/UX)
+1. 列表/网格视图 (Grid View)
+混合排布: 视频和照片按时间顺序混排在同一个网格里。
+视觉区分: 视频文件的缩略图上，必须覆盖一个半透明的 播放图标 (Play Icon) ⏯️，并在角落显示时长 (e.g., 0:45)，让用户一眼识别。
+2. 大图/播放详情 (Lightbox)
+图片: 显示大图。
+视频:
+自动播放 (Autoplay) 或 点击播放。
+显示基础控制条 (播放/暂停，进度条，音量)。
+支持键盘快捷键：Space (暂停/播放)，Left/Right (切换上一个/下一个资源)。
+5. 给 AI Coder 的具体指令 (Prompt Endings)
+请在之前的 Prompt 基础上，追加以下这段针对视频的指令：
+
+"Crucial Update for Video Support:
+
+Scanner Logic: The scanner must also detect video files (.mp4, .mov).
+Thumbnail Generation: Since loading video files in a grid is heavy, checking for video files, use cv2 (OpenCV) or ffmpeg to capture the first frame of the video, save it as a thumbnail .jpg in a cache folder, and serve that image in the gallery grid.
+Frontend: In the React grid, if the item is a video, overlay a 'Play' icon on top of the thumbnail. When clicked, open the Lightbox with a <video> player instead of an <img> tag.
+Performance: Ensure the backend endpoint supports video streaming (Range requests) so large files play smoothly."

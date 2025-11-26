@@ -20,9 +20,15 @@
   .lightbox-content img,
   .lightbox-content video {
     max-width: 100%;
-    max-height: 100%;
+    max-height: 90vh;
     display: block;
     margin: auto;
+  }
+
+  .lightbox-content video {
+    width: auto;
+    height: auto;
+    max-height: 80vh;
   }
 
   .close-btn, .prev-btn, .next-btn {

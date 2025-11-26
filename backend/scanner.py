@@ -43,30 +43,35 @@ def get_video_duration(video_path: Path) -> int:
         return 0
 
 def scan_directory(directory: str, db: Session):
-    print(f"Scanning directory: {directory}")
+    print(f"正在扫描目录: {directory}")
     base_dir = Path(directory)
+    count = 0
+    
     for root, _, files in os.walk(directory):
         for filename in files:
             filepath = Path(root) / filename
             ext = filepath.suffix.lower()
 
-            # Use a unique identifier for the filepath in the DB to avoid collisions
-            unique_id = hashlib.md5(str(filepath).encode()).hexdigest()
-            db_item = db.query(MediaItem).filter(MediaItem.id == unique_id).first()
-
+            # 使用绝对路径的字符串作为唯一标识
+            abs_filepath = str(filepath.resolve())
+            
+            # 检查文件是否已存在（通过filepath）
+            db_item = db.query(MediaItem).filter(MediaItem.filepath == abs_filepath).first()
             if db_item:
                 continue
 
-            web_path = f"/media/{filepath.relative_to(base_dir)}"
+            # 为数据库ID使用MD5哈希
+            unique_id = hashlib.md5(abs_filepath.encode()).hexdigest()
 
             if ext in SUPPORTED_IMAGE_EXTENSIONS:
                 item = MediaItem(
                     id=unique_id,
-                    filepath=web_path,
+                    filepath=abs_filepath,  # 存储绝对路径
                     media_type='image',
                     created_at=get_creation_time(filepath)
                 )
                 db.add(item)
+                count += 1
 
             elif ext in SUPPORTED_VIDEO_EXTENSIONS:
                 thumbnail_filename = f"{unique_id}.jpg"
@@ -75,14 +80,17 @@ def scan_directory(directory: str, db: Session):
 
                 item = MediaItem(
                     id=unique_id,
-                    filepath=str(filepath), # Store the real path for streaming
+                    filepath=abs_filepath,  # 存储绝对路径用于流式传输
                     media_type='video',
                     created_at=get_creation_time(filepath),
                     duration=get_video_duration(filepath),
-                    thumbnail_path=f"/thumbnails/{thumbnail_filename}"
+                    thumbnail_path=f"thumbnails/{thumbnail_filename}"
                 )
                 db.add(item)
+                count += 1
+                
     db.commit()
+    print(f"扫描完成，共添加 {count} 个文件")
 
 def start_scan(directory: str):
     db = next(get_db())

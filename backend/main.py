@@ -30,22 +30,53 @@ def on_startup():
 
 @app.post("/api/scan")
 def scan_media_endpoint(directory: str, db: Session = Depends(get_db)):
-    # Security Check: Ensure the path is within the allowed media directory
-    safe_base_path = os.path.abspath("backend/media")
+    # Normalize the path to handle Windows paths like E:\_Photo2
     requested_path = os.path.abspath(directory)
 
-    if not requested_path.startswith(safe_base_path):
-        raise HTTPException(status_code=400, detail="Error: You can only scan directories within the 'backend/media' folder.")
-
     if not os.path.isdir(requested_path):
-        raise HTTPException(status_code=404, detail="Error: Directory not found.")
+        raise HTTPException(status_code=404, detail=f"错误：目录不存在 - {requested_path}")
 
-    scan_directory(requested_path, db)
-    return {"message": f"Scan completed for directory: {directory}"}
+    try:
+        scan_directory(requested_path, db)
+        return {"message": f"扫描完成：{directory}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"扫描出错：{str(e)}")
 
 @app.get("/api/media")
 def get_media_items(db: Session = Depends(get_db)):
     return db.query(MediaItem).order_by(MediaItem.created_at.desc()).all()
+
+@app.get("/api/media/image/{item_id}")
+async def get_image(item_id: str, db: Session = Depends(get_db)):
+    """提供图片文件访问"""
+    item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
+    if not item or item.media_type != 'image':
+        raise HTTPException(status_code=404, detail="图片未找到")
+    
+    image_path = item.filepath
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="图片文件不存在")
+    
+    mime_type, _ = mimetypes.guess_type(image_path)
+    if mime_type is None:
+        mime_type = "image/jpeg"
+    
+    def file_iterator(path, chunk_size=65536):
+        with open(path, 'rb') as f:
+            while True:
+                data = f.read(chunk_size)
+                if not data:
+                    break
+                yield data
+    
+    file_size = os.path.getsize(image_path)
+    headers = {'Content-Length': str(file_size)}
+    
+    return StreamingResponse(
+        file_iterator(image_path),
+        headers=headers,
+        media_type=mime_type
+    )
 
 @app.get("/api/media/stream/{item_id}")
 async def stream_video(item_id: int, request: Request, db: Session = Depends(get_db)):

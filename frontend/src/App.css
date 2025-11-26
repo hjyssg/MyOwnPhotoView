@@ -14,7 +14,14 @@
 .scan-controls {
   display: flex;
   gap: 10px;
-  margin-top: 10px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.scan-message {
+  color: #61dafb;
+  font-size: 14px;
+  margin-left: 10px;
 }
 
 .scan-controls input {
@@ -41,6 +48,9 @@
 .gallery-item {
   position: relative;
   cursor: pointer;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #f0f0f0;
 }
 
 .gallery-item img {
@@ -48,6 +58,11 @@
   height: 100%;
   object-fit: cover;
   border-radius: 8px;
+  transition: transform 0.2s;
+}
+
+.gallery-item:hover img {
+  transform: scale(1.05);
 }
 
 .video-overlay {
@@ -56,25 +71,46 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   color: white;
   border-radius: 8px;
+  pointer-events: none;
+  transition: background 0.2s;
+}
+
+.gallery-item:hover .video-overlay {
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .play-icon {
   font-size: 48px;
+  opacity: 0.9;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .duration {
   position: absolute;
-  bottom: 5px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 2px 6px;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 3px 8px;
   border-radius: 4px;
   font-size: 12px;
+  font-weight: 500;
+}
+
+.loading-indicator {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-size: 14px;
+}
+
+.loading-indicator p {
+  margin: 0;
 }

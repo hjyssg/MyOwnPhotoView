@@ -1,12 +1,25 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import './Lightbox.css';
 
 const Lightbox = ({ item, onClose, onNext, onPrev }) => {
+  const videoRef = useRef(null);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowRight') onNext();
-      if (e.key === 'ArrowLeft') onPrev();
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowRight') {
+        onNext();
+      } else if (e.key === 'ArrowLeft') {
+        onPrev();
+      } else if (e.key === ' ' && videoRef.current) {
+        e.preventDefault();
+        if (videoRef.current.paused) {
+          videoRef.current.play();
+        } else {
+          videoRef.current.pause();
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
@@ -22,17 +35,22 @@ const Lightbox = ({ item, onClose, onNext, onPrev }) => {
         <button className="next-btn" onClick={onNext}>›</button>
 
         {item.media_type === 'image' ? (
-          <img src={`/${item.filepath}`} alt={item.filepath} />
+          <img 
+            src={`/api/media/image/${item.id}`} 
+            alt={item.filepath}
+            onError={(e) => {
+              console.error('大图加载失败:', item.id);
+            }}
+          />
         ) : (
           <video
+            ref={videoRef}
             src={`/api/media/stream/${item.id}`}
             controls
             autoPlay
-            onKeyDown={(e) => {
-              if (e.key === ' ') {
-                e.preventDefault();
-                e.currentTarget.paused ? e.currentTarget.play() : e.currentTarget.pause();
-              }
+            controlsList="nodownload"
+            onError={(e) => {
+              console.error('视频加载失败:', item.id, e);
             }}
           />
         )}
