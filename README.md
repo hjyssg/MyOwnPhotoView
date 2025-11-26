@@ -76,7 +76,10 @@ Local Smart Gallery 是一个本地智能媒体库，旨在为您混乱的本地
         *打开一个终端窗口*
         ```bash
         source backend/venv/bin/activate
+        or source backend/venv/Scripts/activate
         uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+       
         ```
         服务器将在 `http://localhost:8000` 运行。
 

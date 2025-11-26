@@ -8,6 +8,10 @@ import os
 import re
 import mimetypes
 
+# Ensure required static directories exist so StaticFiles doesn't fail on startup
+os.makedirs("backend/cache/thumbnails", exist_ok=True)
+os.makedirs("backend/media", exist_ok=True)
+
 app = FastAPI()
 
 app.mount("/thumbnails", StaticFiles(directory="backend/cache/thumbnails"), name="thumbnails")
