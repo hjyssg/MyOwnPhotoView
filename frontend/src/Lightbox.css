@@ -1,60 +1,112 @@
+:root {
+  --lb-backdrop: rgba(0, 0, 0, 0.95);
+  --lb-text: #ffffff;
+}
+
 .lightbox-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--lb-backdrop);
+  backdrop-filter: blur(20px);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
 
-  .lightbox-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
+  to {
+    opacity: 1;
+  }
+}
+
+.lightbox-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.lightbox-content img,
+.lightbox-content video {
+  max-width: 95%;
+  max-height: 95%;
+  object-fit: contain;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  animation: scaleUp 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes scaleUp {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
   }
 
-  .lightbox-content img,
-  .lightbox-content video {
-    max-width: 100%;
-    max-height: 90vh;
-    display: block;
-    margin: auto;
+  to {
+    transform: scale(1);
+    opacity: 1;
   }
+}
 
-  .lightbox-content video {
-    width: auto;
-    height: auto;
-    max-height: 80vh;
-  }
+.close-btn,
+.prev-btn,
+.next-btn {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  z-index: 2100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+}
 
-  .close-btn, .prev-btn, .next-btn {
-    position: absolute;
-    background: rgba(0, 0, 0, 0.5);
-    color: white;
-    border: none;
-    padding: 10px;
-    cursor: pointer;
-    font-size: 24px;
-    z-index: 1001;
-  }
+.close-btn:hover,
+.prev-btn:hover,
+.next-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.1);
+}
 
-  .close-btn {
-    top: 10px;
-    right: 10px;
-  }
+.close-btn {
+  top: 30px;
+  right: 30px;
+}
 
-  .prev-btn {
-    top: 50%;
-    left: 10px;
-    transform: translateY(-50%);
-  }
+.prev-btn {
+  left: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+}
 
-  .next-btn {
-    top: 50%;
-    right: 10px;
-    transform: translateY(-50%);
-  }
+.next-btn {
+  right: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.prev-btn:active {
+  transform: translateY(-50%) scale(0.9);
+}
+
+.next-btn:active {
+  transform: translateY(-50%) scale(0.9);
+}

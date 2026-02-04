@@ -3,3 +3,7 @@ uvicorn[standard]
 sqlalchemy
 aiosqlite
 opencv-python
+pillow
+pillow-heif
+piexif
+python-multipart

@@ -128,35 +128,44 @@ function App() {
           {scanMessage && <span className="scan-message">{scanMessage}</span>}
         </div>
       </header>
-      <div className="gallery-grid">
-        {displayedMedia.map((item, index) => (
-          <div key={item.id} className="gallery-item" onClick={() => openLightbox(item, index)}>
-            {item.media_type === 'video' ? (
-              <>
-                <img
-                  src={`/${item.thumbnail_path}`}
-                  alt={item.filepath}
-                  loading="lazy"
-                  onError={(e) => {
-                    console.error('缩略图加载失败:', item.thumbnail_path);
-                    e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%23333"/><text x="50%" y="50%" text-anchor="middle" fill="white">视频</text></svg>';
-                  }}
-                />
-                <div className="video-overlay">
-                  <span className="play-icon">▶</span>
-                  <span className="duration">{formatDuration(item.duration)}</span>
-                </div>
-              </>
-            ) : (
-              <img
-                src={`/api/media/image/${item.id}`}
-                alt={item.filepath}
-                loading="lazy"
-                onError={(e) => {
-                  console.error('图片加载失败:', item.id);
-                }}
-              />
-            )}
+      <div className="gallery-container">
+        {Object.entries(
+          displayedMedia.reduce((groups, item) => {
+            const date = new Date(item.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+            if (!groups[date]) groups[date] = [];
+            groups[date].push(item);
+            return groups;
+          }, {})
+        ).sort((a, b) => new Date(b[0]) - new Date(a[0])).map(([date, items]) => (
+          <div key={date} className="date-group">
+            <h2 className="group-title">{date}</h2>
+            <div className="gallery-grid">
+              {items.map((item) => {
+                const globalIndex = displayedMedia.findIndex(m => m.id === item.id);
+                return (
+                  <div key={item.id} className="gallery-item" onClick={() => openLightbox(item, globalIndex)}>
+                    <img
+                      src={item.thumbnail_path ? `/${item.thumbnail_path}` : `/api/media/image/${item.id}`}
+                      alt={item.filepath}
+                      loading="lazy"
+                      onError={(e) => {
+                        console.error('加载失败:', item.id);
+                        e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%23333"/><text x="50%" y="50%" text-anchor="middle" fill="white">加载失败</text></svg>';
+                      }}
+                    />
+                    {item.media_type === 'video' && (
+                      <div className="video-overlay">
+                        <span className="play-icon">▶</span>
+                        <span className="duration">{formatDuration(item.duration)}</span>
+                      </div>
+                    )}
+                    <div className="item-info">
+                      <span className="file-name">{item.filepath.split(/[\\/]/).pop()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ))}
       </div>

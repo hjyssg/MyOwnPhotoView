@@ -5,6 +5,13 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 from backend.database import MediaItem, SessionLocal
 import hashlib
+from PIL import Image
+import piexif
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except ImportError:
+    pass
 
 SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic']
 SUPPORTED_VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi']
@@ -18,6 +25,16 @@ def get_db():
         db.close()
 
 def get_creation_time(filepath: Path) -> datetime.datetime:
+    """尝试从 EXIF 获取拍摄时间，否则回退到文件修改时间"""
+    try:
+        if filepath.suffix.lower() in ['.jpg', '.jpeg', '.heic']:
+            img = Image.open(filepath)
+            exif_dict = piexif.load(img.info.get("exif", b""))
+            date_str = exif_dict.get("0th", {}).get(piexif.ImageIFD.DateTime)
+            if date_str:
+                return datetime.datetime.strptime(date_str.decode(), '%Y:%m:%d %H:%M:%S')
+    except Exception:
+        pass
     return datetime.datetime.fromtimestamp(filepath.stat().st_mtime)
 
 def create_video_thumbnail(video_path: Path, thumbnail_path: Path):
@@ -64,11 +81,26 @@ def scan_directory(directory: str, db: Session):
             unique_id = hashlib.md5(abs_filepath.encode()).hexdigest()
 
             if ext in SUPPORTED_IMAGE_EXTENSIONS:
+                # 处理 HEIC 或生成缩略图（如果需要）
+                thumbnail_filename = f"{unique_id}.jpg"
+                thumbnail_path = THUMBNAIL_DIR / thumbnail_filename
+                
+                # 如果是图片，我们也生成一个小缩略图以加快前端加载（可选）
+                # 这里为了简单，如果已经有缩略图就不重复生成
+                if not thumbnail_path.exists():
+                    try:
+                        with Image.open(filepath) as img:
+                            img.thumbnail((400, 400))
+                            img.save(thumbnail_path, "JPEG")
+                    except Exception as e:
+                        print(f"Error creating thumbnail for {filepath}: {e}")
+
                 item = MediaItem(
                     id=unique_id,
-                    filepath=abs_filepath,  # 存储绝对路径
+                    filepath=abs_filepath,
                     media_type='image',
-                    created_at=get_creation_time(filepath)
+                    created_at=get_creation_time(filepath),
+                    thumbnail_path=f"thumbnails/{thumbnail_filename}"
                 )
                 db.add(item)
                 count += 1
@@ -76,11 +108,12 @@ def scan_directory(directory: str, db: Session):
             elif ext in SUPPORTED_VIDEO_EXTENSIONS:
                 thumbnail_filename = f"{unique_id}.jpg"
                 thumbnail_path = THUMBNAIL_DIR / thumbnail_filename
-                create_video_thumbnail(filepath, thumbnail_path)
+                if not thumbnail_path.exists():
+                    create_video_thumbnail(filepath, thumbnail_path)
 
                 item = MediaItem(
                     id=unique_id,
-                    filepath=abs_filepath,  # 存储绝对路径用于流式传输
+                    filepath=abs_filepath,
                     media_type='video',
                     created_at=get_creation_time(filepath),
                     duration=get_video_duration(filepath),

@@ -48,98 +48,67 @@ def get_media_items(db: Session = Depends(get_db)):
 
 @app.get("/api/media/image/{item_id}")
 async def get_image(item_id: str, db: Session = Depends(get_db)):
-    """提供图片文件访问"""
+    """提供图片文件访问。"""
     item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
-    if not item or item.media_type != 'image':
-        raise HTTPException(status_code=404, detail="图片未找到")
+    if not item:
+        raise HTTPException(status_code=404, detail="媒体未找到")
     
-    image_path = item.filepath
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail="图片文件不存在")
+    file_path = item.filepath
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="文件不存在")
     
-    mime_type, _ = mimetypes.guess_type(image_path)
+    mime_type, _ = mimetypes.guess_type(file_path)
     if mime_type is None:
         mime_type = "image/jpeg"
     
-    def file_iterator(path, chunk_size=65536):
-        with open(path, 'rb') as f:
-            while True:
-                data = f.read(chunk_size)
-                if not data:
-                    break
-                yield data
-    
-    file_size = os.path.getsize(image_path)
-    headers = {'Content-Length': str(file_size)}
-    
-    return StreamingResponse(
-        file_iterator(image_path),
-        headers=headers,
-        media_type=mime_type
-    )
+    return StreamingResponse(open(file_path, "rb"), media_type=mime_type)
 
 @app.get("/api/media/stream/{item_id}")
-async def stream_video(item_id: int, request: Request, db: Session = Depends(get_db)):
+async def stream_video(item_id: str, request: Request, db: Session = Depends(get_db)):
     item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
     if not item or item.media_type != 'video':
         raise HTTPException(status_code=404, detail="Video not found")
 
     video_path = item.filepath
-    file_size = os.path.getsize(video_path)
+    if not os.path.exists(video_path):
+        raise HTTPException(status_code=404, detail="Video file not found")
 
+    file_size = os.path.getsize(video_path)
     mime_type, _ = mimetypes.guess_type(video_path)
     if mime_type is None:
         mime_type = "video/mp4"
+
     range_header = request.headers.get('Range')
-
     if range_header:
-        byte1, byte2 = 0, file_size - 1
         range_match = re.search(r'bytes=(\d+)-(\d*)', range_header)
-        if range_match:
-            byte1 = int(range_match.group(1))
-            if range_match.group(2):
-                byte2 = int(range_match.group(2))
-
-        length = byte2 - byte1 + 1
-        headers = {
-            'Content-Range': f'bytes {byte1}-{byte2}/{file_size}',
-            'Content-Length': str(length),
-            'Accept-Ranges': 'bytes',
-        }
-
-        def file_iterator(path, offset, chunk_size):
-            with open(path, 'rb') as f:
-                f.seek(offset)
-                while True:
-                    data = f.read(chunk_size)
+        start = int(range_match.group(1))
+        end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+        
+        chunk_size = end - start + 1
+        def generate():
+            with open(video_path, "rb") as f:
+                f.seek(start)
+                remaining = chunk_size
+                while remaining > 0:
+                    read_size = min(65536, remaining)
+                    data = f.read(read_size)
                     if not data:
                         break
                     yield data
+                    remaining -= len(data)
 
         return StreamingResponse(
-            file_iterator(video_path, byte1, 65536),
+            generate(),
             status_code=206,
-            headers=headers,
+            headers={
+                'Content-Range': f'bytes {start}-{end}/{file_size}',
+                'Accept-Ranges': 'bytes',
+                'Content-Length': str(chunk_size),
+            },
             media_type=mime_type
         )
-    else:
-        def file_iterator(path, chunk_size):
-            with open(path, 'rb') as f:
-                while True:
-                    data = f.read(chunk_size)
-                    if not data:
-                        break
-                    yield data
-
-        headers = {
-            'Content-Length': str(file_size),
-            'Accept-Ranges': 'bytes',
-        }
-        return StreamingResponse(
-            file_iterator(video_path, 65536),
-            headers=headers,
-            media_type=mime_type
-        )
+    
+    return StreamingResponse(open(video_path, "rb"), media_type=mime_type)
 
 @app.get("/")
 def read_root():
