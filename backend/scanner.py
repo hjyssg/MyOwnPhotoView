@@ -17,6 +17,65 @@ SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic']
 SUPPORTED_VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi']
 THUMBNAIL_DIR = Path("backend/cache/thumbnails")
 
+def get_decimal_from_dms(dms, ref):
+    if not dms or not ref:
+        return None
+    degrees = dms[0][0] / dms[0][1]
+    minutes = dms[1][0] / dms[1][1] / 60.0
+    seconds = dms[2][0] / dms[2][1] / 3600.0
+    
+    decimal = degrees + minutes + seconds
+    if ref in [b'S', b'W', 'S', 'W']:
+        decimal = -decimal
+    return decimal
+
+def get_geo_info(filepath: Path):
+    lat = None
+    lon = None
+    try:
+        if filepath.suffix.lower() in ['.jpg', '.jpeg', '.heic']:
+            img = Image.open(filepath)
+            exif_dict = piexif.load(img.info.get("exif", b""))
+            gps_tags = exif_dict.get("GPS")
+            
+            if gps_tags:
+                lat_dms = gps_tags.get(piexif.GPSIFD.GPSLatitude)
+                lat_ref = gps_tags.get(piexif.GPSIFD.GPSLatitudeRef)
+                lon_dms = gps_tags.get(piexif.GPSIFD.GPSLongitude)
+                lon_ref = gps_tags.get(piexif.GPSIFD.GPSLongitudeRef)
+                
+                lat = get_decimal_from_dms(lat_dms, lat_ref)
+                lon = get_decimal_from_dms(lon_dms, lon_ref)
+    except Exception:
+        pass
+    return lat, lon
+
+def determine_source_type(filepath: Path, media_type: str) -> str:
+    if media_type == 'video':
+        return 'video'
+    
+    # 简单的分类逻辑
+    filename = filepath.name.lower()
+    if 'screenshot' in filename or '截屏' in filename:
+        return 'screenshot'
+    
+    # 检查 EXIF 是否有相机信息
+    try:
+        if filepath.suffix.lower() in ['.jpg', '.jpeg', '.heic']:
+            img = Image.open(filepath)
+            exif_dict = piexif.load(img.info.get("exif", b""))
+            # 检查是否有相机型号信息
+            if exif_dict.get("0th", {}).get(piexif.ImageIFD.Model):
+                return 'camera'
+    except Exception:
+        pass
+        
+    # 如果是 PNG 且没有被标记为截图，通常是网络图片或者截图
+    if filepath.suffix.lower() == '.png':
+        return 'screenshot' # PNG 通常是截图
+        
+    return 'web' # 其他默认为 Web/Unknown
+
 def get_db():
     db = SessionLocal()
     try:
@@ -85,8 +144,6 @@ def scan_directory(directory: str, db: Session):
                 thumbnail_filename = f"{unique_id}.jpg"
                 thumbnail_path = THUMBNAIL_DIR / thumbnail_filename
                 
-                # 如果是图片，我们也生成一个小缩略图以加快前端加载（可选）
-                # 这里为了简单，如果已经有缩略图就不重复生成
                 if not thumbnail_path.exists():
                     try:
                         with Image.open(filepath) as img:
@@ -95,12 +152,18 @@ def scan_directory(directory: str, db: Session):
                     except Exception as e:
                         print(f"Error creating thumbnail for {filepath}: {e}")
 
+                lat, lon = get_geo_info(filepath)
+                source_type = determine_source_type(filepath, 'image')
+
                 item = MediaItem(
                     id=unique_id,
                     filepath=abs_filepath,
                     media_type='image',
                     created_at=get_creation_time(filepath),
-                    thumbnail_path=f"thumbnails/{thumbnail_filename}"
+                    thumbnail_path=f"thumbnails/{thumbnail_filename}",
+                    latitude=lat,
+                    longitude=lon,
+                    source_type=source_type
                 )
                 db.add(item)
                 count += 1
@@ -117,7 +180,8 @@ def scan_directory(directory: str, db: Session):
                     media_type='video',
                     created_at=get_creation_time(filepath),
                     duration=get_video_duration(filepath),
-                    thumbnail_path=f"thumbnails/{thumbnail_filename}"
+                    thumbnail_path=f"thumbnails/{thumbnail_filename}",
+                    source_type='video'
                 )
                 db.add(item)
                 count += 1

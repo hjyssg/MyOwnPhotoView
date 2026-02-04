@@ -21,6 +21,12 @@ class MediaItem(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     duration = Column(Integer, nullable=True)  # Duration in seconds for videos
     thumbnail_path = Column(String, nullable=True) # Path to the video thumbnail
+    
+    # Phase 2: Location and Intelligence
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    source_type = Column(String, default='unknown') # 'camera', 'web', 'screenshot', 'video'
+    location_name = Column(String, nullable=True)
 
 def create_db_and_tables():
     Base.metadata.create_all(bind=engine)
