@@ -11,7 +11,7 @@ const Navigation = () => {
     <nav className="nav-bar">
       <Link to="/" className={location.pathname === '/' ? 'active' : ''}>时间轴</Link>
       <Link to="/map" className={location.pathname === '/map' ? 'active' : ''}>地图足迹</Link>
-      <Link to="/albums" className={location.pathname === '/albums' ? 'active' : ''}>智能相册</Link>
+      <Link to="/albums" className={location.pathname === '/albums' ? 'active' : ''}>智能分类</Link>
     </nav>
   );
 };
@@ -31,9 +31,12 @@ function AppContent() {
 
   // 过滤状态
   const [activeFilter, setActiveFilter] = useState(null); // { name: string, items: [] }
+  // 时间轴折叠状态：存储已展开的日期
+  const [expandedDates, setExpandedDates] = useState(new Set());
 
   const smartAlbums = useMemo(() => {
     return {
+      all: media,
       camera: media.filter(m => m.source_type === 'camera'),
       screenshot: media.filter(m => m.source_type === 'screenshot'),
       web: media.filter(m => m.source_type === 'web'),
@@ -48,14 +51,13 @@ function AppContent() {
       if (!activeFilter) {
         setDisplayedMedia(response.data.slice(0, ITEMS_PER_PAGE));
       } else {
-        // 如果有滤镜，同步更新滤镜数据
         const filteredItems = response.data.filter(m => {
           if (activeFilter.name === 'video') return m.media_type === 'video';
+          if (activeFilter.name === 'all') return true;
           return m.source_type === activeFilter.name;
         });
         setActiveFilter({ ...activeFilter, items: filteredItems });
       }
-      setPage(1);
     } catch (error) {
       console.error("Error fetching media:", error);
     }
@@ -127,7 +129,7 @@ function AppContent() {
       fetchMedia();
     } catch (error) {
       console.error("扫描出错:", error);
-      setScanMessage(error.response?.data?.detail || '扫描失败');
+      setScanMessage('扫描失败');
     } finally {
       setIsScanning(false);
     }
@@ -140,64 +142,112 @@ function AppContent() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const TimelineView = () => (
-    <div className="gallery-container">
-      {activeFilter && (
-        <div className="filter-info">
-          <span>📂 正在查看：{activeFilter.name.toUpperCase()} ({activeFilter.items.length})</span>
-          <button onClick={() => setActiveFilter(null)}>清除筛选 ✕</button>
+  const toggleDate = (date) => {
+    const newSet = new Set(expandedDates);
+    if (newSet.has(date)) newSet.delete(date);
+    else newSet.add(date);
+    setExpandedDates(newSet);
+  };
+
+  const TimelineView = () => {
+    const groups = useMemo(() => {
+      return displayedMedia.reduce((groups, item) => {
+        const date = new Date(item.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+        if (!groups[date]) groups[date] = [];
+        groups[date].push(item);
+        return groups;
+      }, {});
+    }, [displayedMedia]);
+
+    return (
+      <div className="gallery-container">
+        {/* 顶部过滤器 */}
+        <div className="timeline-filters">
+          {['all', 'camera', 'screenshot', 'video'].map(filterName => (
+            <button
+              key={filterName}
+              className={(activeFilter?.name || 'all') === filterName ? 'active' : ''}
+              onClick={() => {
+                if (filterName === 'all') setActiveFilter(null);
+                else setActiveFilter({ name: filterName, items: smartAlbums[filterName] });
+              }}
+            >
+              {filterName === 'all' ? '全部' :
+                filterName === 'camera' ? '摄影作品' :
+                  filterName === 'screenshot' ? '屏幕截图' : '视频'}
+            </button>
+          ))}
         </div>
-      )}
-      {displayedMedia.length === 0 ? (
-        <div className="empty-state">没有发现媒体内容</div>
-      ) : (
-        Object.entries(
-          displayedMedia.reduce((groups, item) => {
-            const date = new Date(item.created_at).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-            if (!groups[date]) groups[date] = [];
-            groups[date].push(item);
-            return groups;
-          }, {})
-        ).sort((a, b) => new Date(b[0]) - new Date(a[0])).map(([date, items]) => (
-          <div key={date} className="date-group">
-            <h2 className="group-title">{date}</h2>
-            <div className="gallery-grid">
-              {items.map((item) => {
-                return (
-                  <div key={item.id} className="gallery-item" onClick={() => {
-                    const idx = displayedMedia.findIndex(m => m.id === item.id);
-                    openLightbox(item, idx);
-                  }}>
-                    <img
-                      src={item.thumbnail_path ? `/${item.thumbnail_path}` : `/api/media/image/${item.id}`}
-                      alt=""
-                      loading="lazy"
-                    />
-                    {item.media_type === 'video' && (
-                      <div className="video-overlay">
-                        <span className="play-icon">▶</span>
-                        <span className="duration">{formatDuration(item.duration)}</span>
-                      </div>
-                    )}
-                    <span className="source-badge">{item.source_type}</span>
+
+        {displayedMedia.length === 0 ? (
+          <div className="empty-state">没有发现媒体内容</div>
+        ) : (
+          Object.entries(groups).sort((a, b) => new Date(b[0]) - new Date(a[0])).map(([date, items]) => {
+            const isExpanded = expandedDates.has(date);
+            const showLimit = 6;
+            const visibleItems = isExpanded ? items : items.slice(0, showLimit);
+            const hasMore = items.length > showLimit;
+
+            return (
+              <div key={date} className={`date-group ${items.length > 20 ? 'busy-day' : ''}`}>
+                <div className="group-header" onClick={() => toggleDate(date)}>
+                  <div className="group-info">
+                    <h2 className="group-title">{date}</h2>
+                    <span className="group-count">{items.length} 张媒体</span>
+                    {items.length > 20 && <span className="busy-badge">🔥 今日大片较多</span>}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        ))
-      )}
-      {displayedMedia.length < (activeFilter ? activeFilter.items.length : media.length) && (
-        <div ref={loader} className="loading-indicator">加载更多...</div>
-      )}
-    </div>
-  );
+                  {hasMore && (
+                    <button className="expand-toggle">
+                      {isExpanded ? '收起' : '查看完整日期'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="gallery-grid">
+                  {visibleItems.map((item) => {
+                    return (
+                      <div key={item.id} className="gallery-item" onClick={(e) => {
+                        e.stopPropagation();
+                        // 因为是分组后的局部列表，我们需要找到在 displayedMedia 中的全局索引
+                        const idx = displayedMedia.findIndex(m => m.id === item.id);
+                        openLightbox(item, idx);
+                      }}>
+                        <img
+                          src={item.thumbnail_path ? `/${item.thumbnail_path}` : `/api/media/image/${item.id}`}
+                          alt=""
+                          loading="lazy"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%23222"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="%23555" font-family="system-ui" font-size="14">No Preview</text></svg>';
+                          }}
+                        />
+                        {item.media_type === 'video' && (
+                          <div className="video-overlay">
+                            <span className="play-icon">▶</span>
+                            <span className="duration">{formatDuration(item.duration)}</span>
+                          </div>
+                        )}
+                        <span className="source-badge">{item.source_type}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })
+        )}
+        {displayedMedia.length < (activeFilter ? activeFilter.items.length : media.length) && (
+          <div ref={loader} className="loading-indicator">加载更多...</div>
+        )}
+      </div>
+    );
+  };
 
   const AlbumsView = () => (
     <div className="albums-container">
       <h2>智能分类</h2>
       <div className="gallery-grid">
-        {Object.entries(smartAlbums).map(([name, items]) => (
+        {Object.entries(smartAlbums).filter(([k]) => k !== 'all').map(([name, items]) => (
           <div
             key={name}
             className="gallery-item album-card"

@@ -54,27 +54,23 @@ def determine_source_type(filepath: Path, media_type: str) -> str:
     if media_type == 'video':
         return 'video'
     
-    # 简单的分类逻辑
     filename = filepath.name.lower()
     if 'screenshot' in filename or '截屏' in filename:
         return 'screenshot'
     
-    # 检查 EXIF 是否有相机信息
     try:
         if filepath.suffix.lower() in ['.jpg', '.jpeg', '.heic']:
             img = Image.open(filepath)
             exif_dict = piexif.load(img.info.get("exif", b""))
-            # 检查是否有相机型号信息
             if exif_dict.get("0th", {}).get(piexif.ImageIFD.Model):
                 return 'camera'
     except Exception:
         pass
         
-    # 如果是 PNG 且没有被标记为截图，通常是网络图片或者截图
     if filepath.suffix.lower() == '.png':
-        return 'screenshot' # PNG 通常是截图
+        return 'screenshot'
         
-    return 'web' # 其他默认为 Web/Unknown
+    return 'web'
 
 def get_db():
     db = SessionLocal()
@@ -84,7 +80,6 @@ def get_db():
         db.close()
 
 def get_creation_time(filepath: Path) -> datetime.datetime:
-    """尝试从 EXIF 获取拍摄时间，否则回退到文件修改时间"""
     try:
         if filepath.suffix.lower() in ['.jpg', '.jpeg', '.heic']:
             img = Image.open(filepath)
@@ -99,58 +94,72 @@ def get_creation_time(filepath: Path) -> datetime.datetime:
 def create_video_thumbnail(video_path: Path, thumbnail_path: Path):
     try:
         vid_cap = cv2.VideoCapture(str(video_path))
+        if not vid_cap.isOpened():
+            return
+
+        success = False
+        image = None
         success, image = vid_cap.read()
-        if success:
+
+        if not success:
+            vid_cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            success, image = vid_cap.read()
+
+        if not success:
+            vid_cap.set(cv2.CAP_PROP_POS_MSEC, 100)
+            success, image = vid_cap.read()
+
+        if success and image is not None:
             cv2.imwrite(str(thumbnail_path), image)
         vid_cap.release()
     except Exception as e:
         print(f"Error creating thumbnail for {video_path}: {e}")
 
-
 def get_video_duration(video_path: Path) -> int:
     try:
         vid_cap = cv2.VideoCapture(str(video_path))
+        if not vid_cap.isOpened():
+            return 0
         fps = vid_cap.get(cv2.CAP_PROP_FPS)
         frame_count = vid_cap.get(cv2.CAP_PROP_FRAME_COUNT)
         vid_cap.release()
-        return int(frame_count / fps) if fps > 0 else 0
+        
+        if fps > 0 and frame_count > 0:
+            duration = int(frame_count / fps)
+            return max(1, duration)
+        return 0
     except Exception as e:
-        print(f"Error getting duration for {video_path}: {e}")
         return 0
 
 def scan_directory(directory: str, db: Session):
     print(f"正在扫描目录: {directory}")
-    base_dir = Path(directory)
+    THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
     count = 0
     
     for root, _, files in os.walk(directory):
         for filename in files:
             filepath = Path(root) / filename
             ext = filepath.suffix.lower()
-
-            # 使用绝对路径的字符串作为唯一标识
             abs_filepath = str(filepath.resolve())
-            
-            # 检查文件是否已存在（通过filepath）
-            db_item = db.query(MediaItem).filter(MediaItem.filepath == abs_filepath).first()
-            if db_item:
-                continue
-
-            # 为数据库ID使用MD5哈希
             unique_id = hashlib.md5(abs_filepath.encode()).hexdigest()
 
+            db_item = db.query(MediaItem).filter(MediaItem.filepath == abs_filepath).first()
+            
+            if db_item:
+                if db_item.media_type == 'video' and (db_item.duration == 0 or not (THUMBNAIL_DIR / f"{unique_id}.jpg").exists()):
+                    db_item.duration = get_video_duration(filepath)
+                    create_video_thumbnail(filepath, THUMBNAIL_DIR / f"{unique_id}.jpg")
+                continue
+
             if ext in SUPPORTED_IMAGE_EXTENSIONS:
-                # 处理 HEIC 或生成缩略图（如果需要）
                 thumbnail_filename = f"{unique_id}.jpg"
                 thumbnail_path = THUMBNAIL_DIR / thumbnail_filename
-                
                 if not thumbnail_path.exists():
                     try:
                         with Image.open(filepath) as img:
                             img.thumbnail((400, 400))
                             img.save(thumbnail_path, "JPEG")
-                    except Exception as e:
-                        print(f"Error creating thumbnail for {filepath}: {e}")
+                    except Exception: pass
 
                 lat, lon = get_geo_info(filepath)
                 source_type = determine_source_type(filepath, 'image')
