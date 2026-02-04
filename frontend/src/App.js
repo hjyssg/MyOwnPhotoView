@@ -192,7 +192,15 @@ function AppContent() {
               <div key={date} className={`date-group ${items.length > 20 ? 'busy-day' : ''}`}>
                 <div className="group-header" onClick={() => toggleDate(date)}>
                   <div className="group-info">
-                    <h2 className="group-title">{date}</h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <h2 className="group-title">{date}</h2>
+                      {/* 提取当前日期的所有地点名称 */}
+                      {Array.from(new Set(items.map(m => m.location_name).filter(Boolean))).length > 0 && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--accent-color)', opacity: 0.8, fontWeight: 600 }}>
+                          📍 {Array.from(new Set(items.map(m => m.location_name).filter(Boolean))).join(' · ')}
+                        </span>
+                      )}
+                    </div>
                     <span className="group-count">{items.length} 张媒体</span>
                     {items.length > 20 && <span className="busy-badge">🔥 今日大片较多</span>}
                   </div>

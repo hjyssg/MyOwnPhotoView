@@ -5,8 +5,9 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 from backend.database import MediaItem, SessionLocal
 import hashlib
-from PIL import Image
+from PIL import Image, ImageOps
 import piexif
+import reverse_geocoder as rg
 try:
     from pillow_heif import register_heif_opener
     register_heif_opener()
@@ -154,14 +155,26 @@ def scan_directory(directory: str, db: Session):
             if ext in SUPPORTED_IMAGE_EXTENSIONS:
                 thumbnail_filename = f"{unique_id}.jpg"
                 thumbnail_path = THUMBNAIL_DIR / thumbnail_filename
+                
+                lat, lon = get_geo_info(filepath)
+                loc_name = None
+                if lat and lon:
+                    try:
+                        results = rg.search((lat, lon))
+                        if results:
+                            # 提取城市名称 (cc2 是省份/城市代码，admin1 是省，name 是城市)
+                            loc_name = f"{results[0]['admin1']} {results[0]['name']}"
+                    except Exception: pass
+
                 if not thumbnail_path.exists():
                     try:
                         with Image.open(filepath) as img:
+                            # 关键：根据 EXIF 自动旋转
+                            img = ImageOps.exif_transpose(img)
                             img.thumbnail((400, 400))
                             img.save(thumbnail_path, "JPEG")
                     except Exception: pass
 
-                lat, lon = get_geo_info(filepath)
                 source_type = determine_source_type(filepath, 'image')
 
                 item = MediaItem(
@@ -172,7 +185,8 @@ def scan_directory(directory: str, db: Session):
                     thumbnail_path=f"thumbnails/{thumbnail_filename}",
                     latitude=lat,
                     longitude=lon,
-                    source_type=source_type
+                    source_type=source_type,
+                    location_name=loc_name
                 )
                 db.add(item)
                 count += 1
