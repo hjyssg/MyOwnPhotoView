@@ -11,7 +11,7 @@ function MediaCard({ item, onClick, formatDuration, imageStyle }) {
       />
       {item.media_type === 'video' && (
         <div className="video-overlay">
-          <span className="play-icon">Play</span>
+          <span className="play-icon" aria-hidden="true">▶</span>
           <span className="duration">{formatDuration(item.duration)}</span>
         </div>
       )}

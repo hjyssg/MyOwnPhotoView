@@ -105,7 +105,7 @@ function TimelinePage({
 
       {hasMore && (
         <div ref={loaderRef} className="loading-indicator">
-          Loading more...
+          <span className="loading-spinner" aria-label="Loading" />
         </div>
       )}
     </div>
