@@ -1,8 +1,22 @@
 import React, { useEffect, useRef } from 'react';
 import './Lightbox.css';
 
-const Lightbox = ({ item, onClose, onNext, onPrev }) => {
+const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev }) => {
   const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (!item || item.media_type !== 'image' || !items.length) return;
+
+    const preload = (mediaItem) => {
+      if (!mediaItem || mediaItem.media_type !== 'image') return;
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = `/api/media/image/${mediaItem.id}`;
+    };
+
+    const nextIndex = (currentIndex + 1) % items.length;
+    preload(items[nextIndex]);
+  }, [item, items, currentIndex]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -38,6 +52,7 @@ const Lightbox = ({ item, onClose, onNext, onPrev }) => {
           <img 
             src={`/api/media/image/${item.id}`} 
             alt={item.filepath}
+            decoding="async"
             onError={(e) => {
               console.error('大图加载失败:', item.id);
             }}

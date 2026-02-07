@@ -83,7 +83,6 @@
 .prev-btn:hover,
 .next-btn:hover {
   background: rgba(255, 255, 255, 0.15);
-  transform: scale(1.1);
 }
 
 .close-btn {
@@ -103,10 +102,7 @@
   transform: translateY(-50%);
 }
 
-.prev-btn:active {
-  transform: translateY(-50%) scale(0.9);
-}
-
+.prev-btn:active,
 .next-btn:active {
-  transform: translateY(-50%) scale(0.9);
+  background: rgba(255, 255, 255, 0.22);
 }

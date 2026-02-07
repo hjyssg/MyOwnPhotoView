@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -324,12 +324,16 @@ def get_media_by_location(key: str, db: Session = Depends(get_db)):
 
 
 @app.get('/api/media/image/{item_id}')
-async def get_image(item_id: str, db: Session = Depends(get_db)):
-    item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail='Media item not found')
+async def get_image(item_id: str, request: Request):
+    db = SessionLocal()
+    try:
+        item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
+        if not item:
+            raise HTTPException(status_code=404, detail='Media item not found')
+        file_path = item.filepath
+    finally:
+        db.close()
 
-    file_path = item.filepath
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail='File not found')
 
@@ -337,16 +341,40 @@ async def get_image(item_id: str, db: Session = Depends(get_db)):
     if mime_type is None:
         mime_type = 'image/jpeg'
 
-    return StreamingResponse(open(file_path, 'rb'), media_type=mime_type)
+    file_size = os.path.getsize(file_path)
+    file_mtime = int(os.path.getmtime(file_path))
+    etag = f'W/"{file_mtime}-{file_size}"'
+
+    if request.headers.get('if-none-match') == etag:
+        return Response(
+            status_code=304,
+            headers={
+                'ETag': etag,
+                'Cache-Control': 'public, max-age=86400',
+            },
+        )
+
+    return StreamingResponse(
+        open(file_path, 'rb'),
+        media_type=mime_type,
+        headers={
+            'ETag': etag,
+            'Cache-Control': 'public, max-age=86400',
+        },
+    )
 
 
 @app.get('/api/media/stream/{item_id}')
-async def stream_video(item_id: str, request: Request, db: Session = Depends(get_db)):
-    item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
-    if not item or item.media_type != 'video':
-        raise HTTPException(status_code=404, detail='Video not found')
+async def stream_video(item_id: str, request: Request):
+    db = SessionLocal()
+    try:
+        item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
+        if not item or item.media_type != 'video':
+            raise HTTPException(status_code=404, detail='Video not found')
+        video_path = item.filepath
+    finally:
+        db.close()
 
-    video_path = item.filepath
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail='Video file not found')
 

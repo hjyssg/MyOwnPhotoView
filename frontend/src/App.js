@@ -212,7 +212,14 @@ function AppContent() {
       </Routes>
 
       {selectedItem && (
-        <Lightbox item={selectedItem} onClose={closeLightbox} onNext={showNext} onPrev={showPrev} />
+        <Lightbox
+          item={selectedItem}
+          items={lightboxItems}
+          currentIndex={currentIndex}
+          onClose={closeLightbox}
+          onNext={showNext}
+          onPrev={showPrev}
+        />
       )}
 
       {toast && <div className={`toast toast-${toast.type}`}>{toast.message}</div>}
