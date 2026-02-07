@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from backend.database import create_db_and_tables, SessionLocal, MediaItem
 from backend.scanner import scan_directory
 import os
@@ -111,6 +112,36 @@ def scan_status_endpoint():
 @app.get('/api/media')
 def get_media_items(db: Session = Depends(get_db)):
     return db.query(MediaItem).order_by(MediaItem.created_at.desc()).all()
+
+
+@app.get('/api/media/by-date')
+def get_media_by_date(date: str, db: Session = Depends(get_db)):
+    try:
+        datetime.date.fromisoformat(date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail='Invalid date format, expected YYYY-MM-DD')
+
+    return (
+        db.query(MediaItem)
+        .filter(func.date(MediaItem.created_at) == date)
+        .order_by(MediaItem.created_at.desc())
+        .all()
+    )
+
+
+@app.get('/api/media/by-album')
+def get_media_by_album(name: str, db: Session = Depends(get_db)):
+    allowed = {'camera', 'screenshot', 'video', 'web', 'all'}
+    if name not in allowed:
+        raise HTTPException(status_code=400, detail='Invalid album name')
+
+    query = db.query(MediaItem)
+    if name == 'video':
+        query = query.filter(MediaItem.media_type == 'video')
+    elif name != 'all':
+        query = query.filter(MediaItem.source_type == name)
+
+    return query.order_by(MediaItem.created_at.desc()).all()
 
 
 @app.get('/api/media/image/{item_id}')
