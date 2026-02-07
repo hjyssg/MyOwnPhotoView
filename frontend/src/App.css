@@ -270,6 +270,10 @@ h1 {
   gap: 14px;
 }
 
+.date-group-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .gallery-item {
   position: relative;
   border-radius: var(--radius-md);
@@ -506,6 +510,39 @@ h1 {
   margin-top: 0;
 }
 
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 2000;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.86rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  animation: toast-fade-in 0.2s ease-out;
+}
+
+.toast-success {
+  background: linear-gradient(135deg, #2fbb75, #22a968);
+}
+
+.toast-error {
+  background: linear-gradient(135deg, #dc4a64, #be3f55);
+}
+
+@keyframes toast-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 980px) {
   .App-header {
     width: calc(100% - 20px);
@@ -526,6 +563,10 @@ h1 {
   .scan-controls input {
     width: 100%;
   }
+
+  .date-group-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
@@ -539,6 +580,10 @@ h1 {
   .gallery-grid {
     gap: 0.8rem;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .date-group-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .group-header,
@@ -564,6 +609,10 @@ h1 {
 
 @media (max-width: 360px) {
   .gallery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .date-group-grid {
     grid-template-columns: 1fr;
   }
 }

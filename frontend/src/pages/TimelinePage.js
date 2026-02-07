@@ -39,7 +39,7 @@ function TimelinePage({
           formatDuration={formatDuration}
           expandedDates={expandedDates}
           onToggleDate={toggleDate}
-          showLimit={6}
+          showLimit={8}
           showLocationNames
           showDateLink
           collapsible

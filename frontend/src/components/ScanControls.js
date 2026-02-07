@@ -1,6 +1,6 @@
 import React from 'react';
 
-function ScanControls({ scanPath, setScanPath, isScanning, scanMessage, onScan }) {
+function ScanControls({ scanPath, setScanPath, isScanning, onScan }) {
   return (
     <div className="scan-controls">
       <input
@@ -12,7 +12,6 @@ function ScanControls({ scanPath, setScanPath, isScanning, scanMessage, onScan }
       <button onClick={onScan} disabled={isScanning}>
         {isScanning ? 'Scanning...' : 'Start Scan'}
       </button>
-      {scanMessage && <div className="scan-feedback">{scanMessage}</div>}
     </div>
   );
 }

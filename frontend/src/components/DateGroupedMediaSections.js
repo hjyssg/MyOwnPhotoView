@@ -108,6 +108,7 @@ function DateGroupedMediaSections({
           items={visibleItems}
           onItemClick={(_, idx) => openLightboxWithList(visibleItems, idx)}
           formatDuration={formatDuration}
+          className="date-group-grid"
         />
       </div>
     );

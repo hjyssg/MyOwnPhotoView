@@ -20,13 +20,22 @@ function AppContent() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [scanPath, setScanPath] = useState('C:\\Users\\Administrator\\Desktop\\test');
   const [isScanning, setIsScanning] = useState(false);
-  const [scanMessage, setScanMessage] = useState('');
+  const [toast, setToast] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null);
   const [expandedDates, setExpandedDates] = useState(new Set());
 
   const loaderRef = useRef(null);
+  const toastTimerRef = useRef(null);
   const pageRef = useRef(1);
   const itemsPerPage = 50;
+
+  const showToast = useCallback((message, type = 'success') => {
+    setToast({ message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+    }, 2600);
+  }, []);
 
   const smartAlbums = useMemo(
     () => ({
@@ -51,6 +60,12 @@ function AppContent() {
   useEffect(() => {
     fetchMedia();
   }, [fetchMedia]);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     pageRef.current = 1;
@@ -110,14 +125,13 @@ function AppContent() {
 
   const handleScan = async () => {
     setIsScanning(true);
-    setScanMessage('Scanning...');
     try {
       await axios.post(`/api/scan?directory=${encodeURIComponent(scanPath)}`);
-      setScanMessage('Scan completed');
+      showToast('Scan completed', 'success');
       await fetchMedia();
     } catch (error) {
       console.error('Scan failed:', error);
-      setScanMessage('Scan failed');
+      showToast('Scan failed', 'error');
     } finally {
       setIsScanning(false);
     }
@@ -151,7 +165,6 @@ function AppContent() {
           scanPath={scanPath}
           setScanPath={setScanPath}
           isScanning={isScanning}
-          scanMessage={scanMessage}
           onScan={handleScan}
         />
       </header>
@@ -217,6 +230,8 @@ function AppContent() {
       {selectedItem && (
         <Lightbox item={selectedItem} onClose={closeLightbox} onNext={showNext} onPrev={showPrev} />
       )}
+
+      {toast && <div className={`toast toast-${toast.type}`}>{toast.message}</div>}
     </div>
   );
 }
