@@ -38,6 +38,8 @@ def get_decimal_from_dms(dms, ref):
 def _is_valid_coordinate(lat, lon):
     if lat is None or lon is None:
         return False
+    if lat == 0 and lon == 0:
+        return False
     return -90 <= lat <= 90 and -180 <= lon <= 180
 
 

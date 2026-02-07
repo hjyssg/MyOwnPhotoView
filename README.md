@@ -95,3 +95,18 @@ Local Smart Gallery 是一个本地智能媒体库，旨在为您混乱的本地
     -   打开浏览器，访问 `http://localhost:3000`。
     -   点击页面顶部的 **"Scan Media"** 按钮，后端将开始索引您放在 `media/` 文件夹中的所有文件。
     -   扫描完成后，您的照片和视频画廊将呈现在页面上。享受吧！
+
+## 🧭 地名刷新脚本 (Location Refresh Script)
+
+当出现地名异常（例如默认坐标导致的错误地名）时，可以使用该脚本批量刷新数据库中的地名。
+
+```bash
+# 预览（不写入数据库）
+python backend/scripts/refresh_locations.py --dry-run
+
+# 全量刷新（写入数据库）
+python backend/scripts/refresh_locations.py
+
+# 仅刷新某个目录下的媒体
+python backend/scripts/refresh_locations.py --directory "D:/Git/MyOwnPhotoView/media"
+```
