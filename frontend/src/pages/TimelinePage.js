@@ -14,6 +14,7 @@ function TimelinePage({
   hasMore,
 }) {
   const [groupBy, setGroupBy] = useState('day');
+  const showInfiniteLoader = groupBy === 'day' && hasMore;
 
   return (
     <div className="gallery-container">
@@ -68,10 +69,12 @@ function TimelinePage({
         />
       )}
 
-      {hasMore && (
+      {showInfiniteLoader ? (
         <div ref={loaderRef} className="loading-indicator">
           <span className="loading-spinner" aria-label="Loading" />
         </div>
+      ) : (
+        <div className="end-divider" aria-label="No more results">—</div>
       )}
     </div>
   );
