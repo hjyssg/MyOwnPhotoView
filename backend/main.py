@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from backend.database import create_db_and_tables, SessionLocal, MediaItem
 from backend.scanner import scan_directory
 from backend.location_normalizer import media_item_to_dict, normalize_location_name
@@ -84,6 +84,24 @@ def _save_scan_folders_config(folders: list[str]):
     os.makedirs(os.path.dirname(SCAN_FOLDERS_CONFIG_PATH), exist_ok=True)
     with open(SCAN_FOLDERS_CONFIG_PATH, 'w', encoding='utf-8') as f:
         json.dump({'folders': folders}, f, ensure_ascii=False, indent=2)
+
+
+def _get_folder_scan_stats(db: Session, folder: str) -> tuple[bool, int]:
+    abs_folder = os.path.abspath(folder).rstrip('/\\')
+    prefix = abs_folder + os.sep
+
+    count = (
+        db.query(func.count(MediaItem.id))
+        .filter(
+            or_(
+                MediaItem.filepath == abs_folder,
+                MediaItem.filepath.like(f'{prefix}%'),
+            )
+        )
+        .scalar()
+        or 0
+    )
+    return count > 0, int(count)
 
 
 def _run_scan_job(directory: str):
@@ -184,9 +202,19 @@ def scan_status_endpoint():
 
 
 @app.get('/api/scan/folders')
-def get_scan_folders_endpoint():
+def get_scan_folders_endpoint(db: Session = Depends(get_db)):
     folders = _load_scan_folders_config()
-    return {'folders': folders}
+    items = []
+    for folder in folders:
+        has_scanned, scanned_count = _get_folder_scan_stats(db, folder)
+        items.append(
+            {
+                'path': folder,
+                'has_scanned': has_scanned,
+                'scanned_count': scanned_count,
+            }
+        )
+    return {'folders': folders, 'items': items}
 
 
 @app.put('/api/scan/folders')
