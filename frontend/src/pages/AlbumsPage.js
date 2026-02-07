@@ -1,7 +1,7 @@
 import React from 'react';
-import MediaCard from '../components/MediaCard';
+import LazyImage from '../components/LazyImage';
 
-function AlbumsPage({ smartAlbums, formatDuration }) {
+function AlbumsPage({ smartAlbums }) {
   const albums = Object.entries(smartAlbums).filter(([name]) => name !== 'all');
 
   return (
@@ -14,21 +14,22 @@ function AlbumsPage({ smartAlbums, formatDuration }) {
             href={`/album/${name}`}
             target="_blank"
             rel="noreferrer"
-            style={{ textDecoration: 'none', color: 'inherit' }}
+            className="album-link"
           >
-            {items.length > 0 ? (
-              <MediaCard
-                item={items[0]}
-                onClick={() => {}}
-                formatDuration={formatDuration}
-                imageStyle={{ filter: 'brightness(0.5)' }}
-              />
-            ) : (
-              <div className="gallery-item" />
-            )}
-            <div className="album-overlay">
-              <span className="album-name">{name.toUpperCase()}</span>
-              <span className="album-count">{items.length} items</span>
+            <div className="album-card">
+              {items.length > 0 ? (
+                <LazyImage
+                  src={items[0].thumbnail_path ? `/${items[0].thumbnail_path}` : `/api/media/image/${items[0].id}`}
+                  alt=""
+                  className="album-cover"
+                />
+              ) : (
+                <div className="album-cover album-empty" />
+              )}
+              <div className="album-overlay">
+                <span className="album-name">{name.toUpperCase()}</span>
+                <span className="album-count">{items.length} items</span>
+              </div>
             </div>
           </a>
         ))}

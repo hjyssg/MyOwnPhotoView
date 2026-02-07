@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import subprocess
 from pathlib import Path
+from functools import lru_cache
 from sqlalchemy.orm import Session
 from backend.database import MediaItem, SessionLocal
 from PIL import Image, ImageOps
@@ -34,6 +35,33 @@ def get_decimal_from_dms(dms, ref):
     return decimal
 
 
+def _is_valid_coordinate(lat, lon):
+    if lat is None or lon is None:
+        return False
+    return -90 <= lat <= 90 and -180 <= lon <= 180
+
+
+@lru_cache(maxsize=10000)
+def reverse_geocode_location(lat, lon):
+    if not _is_valid_coordinate(lat, lon):
+        return None
+
+    try:
+        # reverse_geocoder expects a list of (lat, lon) tuples.
+        result = rg.search([(lat, lon)], mode=1)
+        if not result:
+            return None
+
+        place = result[0]
+        country = place.get('cc', '')
+        admin1 = place.get('admin1', '')
+        city = place.get('name', '')
+        parts = [p for p in [country, admin1, city] if p]
+        return ' '.join(parts) if parts else None
+    except Exception:
+        return None
+
+
 def get_geo_info(filepath: Path):
     lat = None
     lon = None
@@ -51,6 +79,8 @@ def get_geo_info(filepath: Path):
 
                 lat = get_decimal_from_dms(lat_dms, lat_ref)
                 lon = get_decimal_from_dms(lon_dms, lon_ref)
+                if not _is_valid_coordinate(lat, lon):
+                    return None, None
     except Exception:
         pass
     return lat, lon
@@ -225,6 +255,11 @@ def scan_directory(directory: str, db: Session):
             db_item = existing_items.get(abs_filepath)
 
             if db_item and db_item.mtime == file_mtime and db_item.size == file_size:
+                if db_item.media_type == 'image' and _is_valid_coordinate(db_item.latitude, db_item.longitude):
+                    refreshed_location = reverse_geocode_location(db_item.latitude, db_item.longitude)
+                    if db_item.location_name != refreshed_location:
+                        db_item.location_name = refreshed_location
+                        updated_count += 1
                 if db_item.media_type == 'video':
                     if db_item.duration in [None, 0]:
                         db_item.duration = get_video_duration(filepath)
@@ -237,14 +272,7 @@ def scan_directory(directory: str, db: Session):
 
             if ext in SUPPORTED_IMAGE_EXTENSIONS:
                 lat, lon = get_geo_info(filepath)
-                loc_name = None
-                if lat is not None and lon is not None:
-                    try:
-                        results = rg.search((lat, lon))
-                        if results:
-                            loc_name = f"{results[0]['admin1']} {results[0]['name']}"
-                    except Exception:
-                        pass
+                loc_name = reverse_geocode_location(lat, lon)
 
                 try:
                     with Image.open(filepath) as img:

@@ -61,6 +61,9 @@ function TimelinePage({
           const showLimit = 6;
           const visibleItems = isExpanded ? items : items.slice(0, showLimit);
           const hasHidden = items.length > showLimit;
+          const locationNames = Array.from(
+            new Set(items.map((m) => m.location_name).filter(Boolean))
+          );
 
           return (
             <div key={dateKey} className={`date-group ${items.length > 20 ? 'busy-day' : ''}`}>
@@ -68,6 +71,9 @@ function TimelinePage({
                 <div className="group-info">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <h2 className="group-title">{dateKey}</h2>
+                    {locationNames.length > 0 && (
+                      <span className="group-location">{locationNames.join(' | ')}</span>
+                    )}
                     <a
                       href={`/date/${dateKey}`}
                       target="_blank"
