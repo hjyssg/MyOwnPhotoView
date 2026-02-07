@@ -40,7 +40,7 @@ function DateDetailPage({ openLightboxWithList, formatDuration, allMedia }) {
 
   return (
     <div className="gallery-container">
-      <h2>{dateKey}</h2>
+      <h2>{dateKey} · {items.length} items</h2>
       {loading ? (
         <div className="loading-indicator">
           <span className="loading-spinner" aria-label="Loading" />

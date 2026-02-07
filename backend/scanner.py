@@ -2,6 +2,7 @@ import os
 import datetime
 import hashlib
 import subprocess
+import re
 from pathlib import Path
 from functools import lru_cache
 from sqlalchemy.orm import Session
@@ -144,6 +145,7 @@ def get_db():
 
 
 def get_creation_time(filepath: Path) -> datetime.datetime:
+    # 1) EXIF DateTime (for common image formats)
     try:
         if filepath.suffix.lower() in ['.jpg', '.jpeg', '.heic']:
             img = Image.open(filepath)
@@ -153,7 +155,36 @@ def get_creation_time(filepath: Path) -> datetime.datetime:
                 return datetime.datetime.strptime(date_str.decode(), '%Y:%m:%d %H:%M:%S')
     except Exception:
         pass
-    return datetime.datetime.fromtimestamp(filepath.stat().st_mtime)
+
+    # 2) Parse date from filename (supports several common patterns)
+    filename = filepath.stem
+    patterns = [
+        # 2026-01-01_12-34-56 / 20260101_123456 / 2026_01_01-123456
+        r'(?<!\d)(\d{4})[-_]?([01]\d)[-_]?([0-3]\d)[T_\- ]?([0-2]\d)[-_:]?([0-5]\d)[-_:]?([0-5]\d)(?!\d)',
+        # 2026-01-01 / 2026_01_01 / 20260101
+        r'(?<!\d)(\d{4})[-_]?([01]\d)[-_]?([0-3]\d)(?!\d)',
+    ]
+
+    for p in patterns:
+        match = re.search(p, filename)
+        if not match:
+            continue
+        try:
+            parts = [int(v) for v in match.groups()]
+            if len(parts) == 3:
+                y, m, d = parts
+                return datetime.datetime(y, m, d)
+            if len(parts) == 6:
+                y, m, d, hh, mm, ss = parts
+                return datetime.datetime(y, m, d, hh, mm, ss)
+        except Exception:
+            continue
+
+    # 3) Final fallback: filesystem ctime (NOT mtime)
+    try:
+        return datetime.datetime.fromtimestamp(filepath.stat().st_ctime)
+    except Exception:
+        return datetime.datetime.utcnow()
 
 
 def _run_command(command):
@@ -281,6 +312,10 @@ def scan_directory(directory: str, db: Session):
             db_item = existing_items.get(abs_filepath)
 
             if db_item and db_item.mtime == file_mtime and db_item.size == file_size:
+                refreshed_created_at = get_creation_time(filepath)
+                if db_item.created_at != refreshed_created_at:
+                    db_item.created_at = refreshed_created_at
+                    updated_count += 1
                 if db_item.media_type == 'image' and _is_valid_coordinate(db_item.latitude, db_item.longitude):
                     refreshed_location = reverse_geocode_location(db_item.latitude, db_item.longitude)
                     if db_item.location_name != refreshed_location:

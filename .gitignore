@@ -209,3 +209,5 @@ __marimo__/
 
 cache/
 tmp_test_media_500/
+
+/media_gallery.db
