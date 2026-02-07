@@ -5,6 +5,48 @@ import './App.css';
 import Lightbox from './Lightbox';
 import MapView from './MapView';
 
+const IMAGE_PLACEHOLDER =
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect width=%22200%22 height=%22200%22 fill=%22%23161616%22/%3E%3C/svg%3E';
+const IMAGE_FALLBACK =
+  'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%23222"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="%23555" font-family="system-ui" font-size="14">No Preview</text></svg>';
+
+const LazyImage = ({ src, alt, className, style }) => {
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const imgRef = useRef(null);
+
+  useEffect(() => {
+    const node = imgRef.current;
+    if (!node) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      { root: null, rootMargin: '200px 0px', threshold: 0.01 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <img
+      ref={imgRef}
+      src={failed ? IMAGE_FALLBACK : shouldLoad ? src : IMAGE_PLACEHOLDER}
+      alt={alt}
+      className={className}
+      style={style}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  );
+};
+
 const Navigation = () => {
   const location = useLocation();
   return (
@@ -24,8 +66,8 @@ function AppContent() {
   const [scanPath, setScanPath] = useState('C:\\Users\\Administrator\\Desktop\\test');
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
-  const [page, setPage] = useState(1);
   const loader = useRef(null);
+  const pageRef = useRef(1);
   const ITEMS_PER_PAGE = 50;
   const navigate = useNavigate();
 
@@ -68,20 +110,18 @@ function AppContent() {
   }, []);
 
   const loadMore = useCallback(() => {
-    const nextPage = page + 1;
-    const end = nextPage * ITEMS_PER_PAGE;
     const sourceList = activeFilter ? activeFilter.items : media;
+    pageRef.current += 1;
+    const end = pageRef.current * ITEMS_PER_PAGE;
     setDisplayedMedia(sourceList.slice(0, end));
-    setPage(nextPage);
-  }, [page, media, activeFilter]);
+  }, [media, activeFilter]);
 
   useEffect(() => {
+    pageRef.current = 1;
     if (activeFilter) {
       setDisplayedMedia(activeFilter.items.slice(0, ITEMS_PER_PAGE));
-      setPage(1);
     } else {
       setDisplayedMedia(media.slice(0, ITEMS_PER_PAGE));
-      setPage(1);
     }
   }, [activeFilter, media]);
 
@@ -95,9 +135,10 @@ function AppContent() {
       }
     }, options);
 
-    if (loader.current) observer.observe(loader.current);
+    const currentLoader = loader.current;
+    if (currentLoader) observer.observe(currentLoader);
     return () => {
-      if (loader.current) observer.unobserve(loader.current);
+      if (currentLoader) observer.unobserve(currentLoader);
     };
   }, [loadMore, displayedMedia.length, media.length, activeFilter]);
 
@@ -220,14 +261,9 @@ function AppContent() {
                         const idx = displayedMedia.findIndex(m => m.id === item.id);
                         openLightbox(item, idx);
                       }}>
-                        <img
+                        <LazyImage
                           src={item.thumbnail_path ? `/${item.thumbnail_path}` : `/api/media/image/${item.id}`}
                           alt=""
-                          loading="lazy"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="%23222"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="%23555" font-family="system-ui" font-size="14">No Preview</text></svg>';
-                          }}
                         />
                         {item.media_type === 'video' && (
                           <div className="video-overlay">
@@ -265,7 +301,7 @@ function AppContent() {
             }}
           >
             {items.length > 0 && (
-              <img
+              <LazyImage
                 src={items[0].thumbnail_path ? `/${items[0].thumbnail_path}` : `/api/media/image/${items[0].id}`}
                 alt=""
                 style={{ filter: 'brightness(0.5)' }}
