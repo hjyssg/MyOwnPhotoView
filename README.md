@@ -110,3 +110,13 @@ python backend/scripts/refresh_locations.py
 # 仅刷新某个目录下的媒体
 python backend/scripts/refresh_locations.py --directory "D:/Git/MyOwnPhotoView/media"
 ```
+
+## 🌏 地名聚合与中文显示 (Geocoding Notes)
+
+当前使用 **reverse_geocoder** 离线反向地理编码，聚合格式为：
+
+```
+国家 + 省/州 + 城市
+```
+
+中文显示来自本地映射文件：`backend/data/location_zh_map.json`。你可以在该文件中补充更多国家/省/城市的英文→中文映射；未命中的项将保留英文。

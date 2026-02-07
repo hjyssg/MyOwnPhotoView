@@ -7,6 +7,7 @@ from functools import lru_cache
 from sqlalchemy.orm import Session
 from backend.database import MediaItem, SessionLocal
 from PIL import Image, ImageOps
+import json
 import piexif
 import reverse_geocoder as rg
 
@@ -43,22 +44,45 @@ def _is_valid_coordinate(lat, lon):
     return -90 <= lat <= 90 and -180 <= lon <= 180
 
 
+CN_MAP_PATH = Path('backend/data/location_zh_map.json')
+
+
+@lru_cache(maxsize=1)
+def _load_cn_map():
+    try:
+        if CN_MAP_PATH.exists():
+            return json.loads(CN_MAP_PATH.read_text(encoding='utf-8'))
+    except Exception:
+        pass
+    return {
+        'country': {},
+        'admin1': {},
+        'city': {},
+    }
+
+
 @lru_cache(maxsize=10000)
 def reverse_geocode_location(lat, lon):
     if not _is_valid_coordinate(lat, lon):
         return None
 
     try:
-        # reverse_geocoder expects a list of (lat, lon) tuples.
         result = rg.search([(lat, lon)], mode=1)
         if not result:
             return None
 
         place = result[0]
-        country = place.get('cc', '')
+        cn_map = _load_cn_map()
+
+        country = place.get('cc') or place.get('country') or ''
         admin1 = place.get('admin1', '')
         city = place.get('name', '')
-        parts = [p for p in [country, admin1, city] if p]
+
+        country_cn = cn_map.get('country', {}).get(country, country)
+        admin1_cn = cn_map.get('admin1', {}).get(admin1, admin1)
+        city_cn = cn_map.get('city', {}).get(city, city)
+
+        parts = [p for p in [country_cn, admin1_cn, city_cn] if p]
         return ' '.join(parts) if parts else None
     except Exception:
         return None

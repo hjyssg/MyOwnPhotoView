@@ -1,16 +1,27 @@
 import argparse
 import os
+import sys
+import time
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.database import SessionLocal, MediaItem
 from backend.scanner import _is_valid_coordinate, reverse_geocode_location, _is_under_directory
 
 
-def refresh_locations(directory: str | None = None, dry_run: bool = False) -> dict:
+def refresh_locations(
+    directory: str | None = None,
+    dry_run: bool = False,
+    progress_interval: int = 100,
+) -> dict:
     db = SessionLocal()
     updated = 0
     cleared = 0
     skipped = 0
+    start_time = time.time()
 
     try:
         query = db.query(MediaItem).filter(MediaItem.media_type == 'image')
@@ -20,7 +31,8 @@ def refresh_locations(directory: str | None = None, dry_run: bool = False) -> di
         else:
             query = query.all()
 
-        for item in query:
+        total = len(query)
+        for index, item in enumerate(query, start=1):
             lat = item.latitude
             lon = item.longitude
 
@@ -41,6 +53,14 @@ def refresh_locations(directory: str | None = None, dry_run: bool = False) -> di
             else:
                 skipped += 1
 
+            if progress_interval > 0 and index % progress_interval == 0:
+                elapsed = time.time() - start_time
+                print(
+                    f'Progress: {index}/{total} '
+                    f'(updated={updated}, cleared={cleared}, skipped={skipped}) '
+                    f'elapsed={elapsed:.1f}s'
+                )
+
         if not dry_run:
             db.commit()
     finally:
@@ -51,6 +71,8 @@ def refresh_locations(directory: str | None = None, dry_run: bool = False) -> di
         'cleared': cleared,
         'skipped': skipped,
         'dry_run': dry_run,
+        'total': total,
+        'elapsed_seconds': time.time() - start_time,
     }
 
 
@@ -65,13 +87,24 @@ def main():
         action='store_true',
         help='Preview changes without writing to the database.',
     )
+    parser.add_argument(
+        '--progress-interval',
+        type=int,
+        default=100,
+        help='Print progress every N items (0 to disable).',
+    )
     args = parser.parse_args()
 
-    result = refresh_locations(directory=args.directory, dry_run=args.dry_run)
+    result = refresh_locations(
+        directory=args.directory,
+        dry_run=args.dry_run,
+        progress_interval=args.progress_interval,
+    )
     print(
         'Refresh complete. '
         f"Updated: {result['updated']}, Cleared: {result['cleared']}, "
-        f"Skipped: {result['skipped']}, Dry-run: {result['dry_run']}"
+        f"Skipped: {result['skipped']}, Dry-run: {result['dry_run']}, "
+        f"Total: {result['total']}, Elapsed: {result['elapsed_seconds']:.1f}s"
     )
 
 
