@@ -1,0 +1,523 @@
+{
+  "上海": [
+    "Shanghai",
+    "Shanghai Shi",
+    "Pujiang",
+    "Pudong",
+    "Pudong Xinqu",
+    "Huangpu",
+    "Minhang",
+    "Xuhui",
+    "Jing'an",
+    "Jingan",
+    "Putuo",
+    "Yangpu",
+    "Baoshan",
+    "Jiading",
+    "Jinshan",
+    "Songjiang",
+    "Qingpu",
+    "Fengxian",
+    "Chongming"
+  ],
+  "北京": [
+    "Beijing",
+    "Beijing Shi",
+    "Chaoyang",
+    "Haidian",
+    "Dongcheng",
+    "Xicheng",
+    "Fengtai",
+    "Shijingshan",
+    "Tongzhou",
+    "Changping",
+    "Daxing"
+  ],
+  "天津": [
+    "Tianjin",
+    "Tianjin Shi",
+    "Heping",
+    "Nankai",
+    "Hexi",
+    "Hebei"
+  ],
+  "广州": [
+    "Guangzhou",
+    "Guangzhou Shi",
+    "Tianhe",
+    "Yuexiu",
+    "Haizhu",
+    "Panyu",
+    "Baiyun",
+    "Huangpu",
+    "Nansha"
+  ],
+  "深圳": [
+    "Shenzhen",
+    "Shenzhen Shi",
+    "Nanshan",
+    "Futian",
+    "Luohu",
+    "Bao'an",
+    "Longgang",
+    "Longhua",
+    "Yantian"
+  ],
+  "杭州": [
+    "Hangzhou",
+    "Hangzhou Shi",
+    "Xihu",
+    "Shangcheng",
+    "Gongshu",
+    "Binjiang",
+    "Yuhang",
+    "Xiaoshan"
+  ],
+  "南京": [
+    "Nanjing",
+    "Nanjing Shi",
+    "Xuanwu",
+    "Qinhuai",
+    "Jianye",
+    "Gulou",
+    "Pukou",
+    "Jiangning"
+  ],
+  "苏州": [
+    "Suzhou",
+    "Suzhou Shi",
+    "Gusu",
+    "Wuzhong",
+    "Xiangcheng",
+    "Kunshan",
+    "Zhangjiagang",
+    "Changshu"
+  ],
+  "无锡": [
+    "Wuxi",
+    "Wuxi Shi",
+    "Liangxi",
+    "Binhu",
+    "Xishan",
+    "Jiangyin",
+    "Yixing"
+  ],
+  "常州": [
+    "Changzhou",
+    "Changzhou Shi",
+    "Tianning",
+    "Zhonglou",
+    "Xinbei",
+    "Wujin"
+  ],
+  "宁波": [
+    "Ningbo",
+    "Ningbo Shi",
+    "Haishu",
+    "Jiangbei",
+    "Yinzhou",
+    "Beilun",
+    "Cixi",
+    "Yuyao"
+  ],
+  "温州": [
+    "Wenzhou",
+    "Wenzhou Shi",
+    "Lucheng",
+    "Longwan",
+    "Ouhai",
+    "Rui'an",
+    "Yueqing"
+  ],
+  "福州": [
+    "Fuzhou",
+    "Fuzhou Shi",
+    "Gulou",
+    "Taijiang",
+    "Cangshan",
+    "Jin'an",
+    "Changle"
+  ],
+  "厦门": [
+    "Xiamen",
+    "Xiamen Shi",
+    "Siming",
+    "Huli",
+    "Jimei",
+    "Haicang",
+    "Tong'an"
+  ],
+  "泉州": [
+    "Quanzhou",
+    "Quanzhou Shi",
+    "Licheng",
+    "Fengze",
+    "Jinjiang",
+    "Shishi",
+    "Nan'an"
+  ],
+  "济南": [
+    "Jinan",
+    "Jinan Shi",
+    "Lixia",
+    "Shizhong",
+    "Huaiyin",
+    "Licheng",
+    "Zhangqiu"
+  ],
+  "青岛": [
+    "Qingdao",
+    "Qingdao Shi",
+    "Shinan",
+    "Shibei",
+    "Laoshan",
+    "Huangdao",
+    "Jimo"
+  ],
+  "烟台": [
+    "Yantai",
+    "Yantai Shi",
+    "Zhifu",
+    "Fushan",
+    "Mouping",
+    "Longkou"
+  ],
+  "武汉": [
+    "Wuhan",
+    "Wuhan Shi",
+    "Jiang'an",
+    "Jianghan",
+    "Qiaokou",
+    "Hanyang",
+    "Wuchang",
+    "Hongshan"
+  ],
+  "长沙": [
+    "Changsha",
+    "Changsha Shi",
+    "Furong",
+    "Tianxin",
+    "Yuelu",
+    "Kaifu",
+    "Yuhua"
+  ],
+  "郑州": [
+    "Zhengzhou",
+    "Zhengzhou Shi",
+    "Jinshui",
+    "Erqi",
+    "Zhongyuan",
+    "Guancheng",
+    "Huiji"
+  ],
+  "西安": [
+    "Xian",
+    "Xi'an",
+    "Xi An",
+    "Xi'an Shi",
+    "Beilin",
+    "Yanta",
+    "Weiyang",
+    "Baqiao"
+  ],
+  "成都": [
+    "Chengdu",
+    "Chengdu Shi",
+    "Jinjiang",
+    "Qingyang",
+    "Wuhou",
+    "Chenghua",
+    "Shuangliu",
+    "Pidu"
+  ],
+  "重庆": [
+    "Chongqing",
+    "Chongqing Shi",
+    "Yuzhong",
+    "Jiangbei",
+    "Nan'an",
+    "Shapingba"
+  ],
+  "昆明": [
+    "Kunming",
+    "Kunming Shi",
+    "Wuhua",
+    "Panlong",
+    "Guandu",
+    "Xishan"
+  ],
+  "贵阳": [
+    "Guiyang",
+    "Guiyang Shi",
+    "Nanming",
+    "Yunyan",
+    "Huaxi",
+    "Guanshanhu"
+  ],
+  "南宁": [
+    "Nanning",
+    "Nanning Shi",
+    "Qingxiu",
+    "Xixiangtang",
+    "Jiangnan",
+    "Liangqing"
+  ],
+  "海口": [
+    "Haikou",
+    "Haikou Shi",
+    "Xiuying",
+    "Longhua",
+    "Qiongshan",
+    "Meilan"
+  ],
+  "三亚": [
+    "Sanya",
+    "Sanya Shi",
+    "Jiyang",
+    "Tianya",
+    "Haitang",
+    "Yazhou"
+  ],
+  "沈阳": [
+    "Shenyang",
+    "Shenyang Shi",
+    "Heping",
+    "Shenhe",
+    "Dadong",
+    "Huanggu",
+    "Tiexi"
+  ],
+  "大连": [
+    "Dalian",
+    "Dalian Shi",
+    "Zhongshan",
+    "Xigang",
+    "Shahekou",
+    "Ganjingzi"
+  ],
+  "长春": [
+    "Changchun",
+    "Changchun Shi",
+    "Nanguan",
+    "Kuancheng",
+    "Chaoyang",
+    "Erdao"
+  ],
+  "哈尔滨": [
+    "Harbin",
+    "Harbin Shi",
+    "Daoli",
+    "Daowai",
+    "Nangang",
+    "Xiangfang"
+  ],
+  "石家庄": [
+    "Shijiazhuang",
+    "Shijiazhuang Shi",
+    "Changan",
+    "Qiaoxi",
+    "Xinhua",
+    "Yuhua"
+  ],
+  "太原": [
+    "Taiyuan",
+    "Taiyuan Shi",
+    "Yingze",
+    "Xiaodian",
+    "Wanbailin",
+    "Jiancaoping"
+  ],
+  "合肥": [
+    "Hefei",
+    "Hefei Shi",
+    "Luyang",
+    "Shushan",
+    "Baohe",
+    "Yaohai"
+  ],
+  "南昌": [
+    "Nanchang",
+    "Nanchang Shi",
+    "Donghu",
+    "Xihu",
+    "Qingshanhu",
+    "Honggutan"
+  ],
+  "兰州": [
+    "Lanzhou",
+    "Lanzhou Shi",
+    "Chengguan",
+    "Qilihe",
+    "Xigu",
+    "Anning"
+  ],
+  "西宁": [
+    "Xining",
+    "Xining Shi",
+    "Chengdong",
+    "Chengzhong",
+    "Chengxi",
+    "Chengbei"
+  ],
+  "乌鲁木齐": [
+    "Urumqi",
+    "Urumchi",
+    "Wulumuqi",
+    "Urumqi Shi",
+    "Tianshan",
+    "Shayibake",
+    "Xinshi",
+    "Shuimogou"
+  ],
+  "拉萨": [
+    "Lhasa",
+    "Lasa",
+    "Lhasa Shi",
+    "Chengguan"
+  ],
+  "呼和浩特": [
+    "Hohhot",
+    "Huhehaote",
+    "Hohhot Shi",
+    "Xincheng",
+    "Huimin",
+    "Yuquan",
+    "Saihan"
+  ],
+  "银川": [
+    "Yinchuan",
+    "Yinchuan Shi",
+    "Xingqing",
+    "Jinfeng",
+    "Xixia"
+  ],
+  "香港": [
+    "Hong Kong",
+    "Hongkong",
+    "HK",
+    "Central",
+    "Wan Chai",
+    "Kowloon",
+    "Tsim Sha Tsui"
+  ],
+  "澳门": [
+    "Macau",
+    "Macao",
+    "MO",
+    "Cotai",
+    "Taipa"
+  ],
+  "台北": [
+    "Taipei",
+    "Taipei City",
+    "Xinyi",
+    "Daan",
+    "Wanhua",
+    "Songshan"
+  ],
+  "东京": [
+    "Tokyo",
+    "Tokyo-to",
+    "Tokyo Prefecture",
+    "Shinjuku",
+    "Shibuya",
+    "Minato",
+    "Chiyoda",
+    "Taito",
+    "Sumida",
+    "Setagaya"
+  ],
+  "大阪": [
+    "Osaka",
+    "Osaka-shi",
+    "Osaka Fu",
+    "Kita",
+    "Naniwa",
+    "Tennoji",
+    "Yodogawa",
+    "Sakai"
+  ],
+  "京都": [
+    "Kyoto",
+    "Kyoto-shi",
+    "Kyoto Fu",
+    "Sakyo",
+    "Fushimi",
+    "Ukyo",
+    "Nakagyo"
+  ],
+  "横滨": [
+    "Yokohama",
+    "Yokohama-shi",
+    "Kanagawa",
+    "Nishi",
+    "Naka",
+    "Kohoku",
+    "Tsurumi"
+  ],
+  "名古屋": [
+    "Nagoya",
+    "Nagoya-shi",
+    "Aichi",
+    "Naka-ku",
+    "Nakamura",
+    "Atsuta",
+    "Meito"
+  ],
+  "神户": [
+    "Kobe",
+    "Kobe-shi",
+    "Hyogo",
+    "Chuo-ku",
+    "Nada",
+    "Higashinada",
+    "Suma"
+  ],
+  "札幌": [
+    "Sapporo",
+    "Sapporo-shi",
+    "Hokkaido",
+    "Chuo Ward",
+    "Kita Ward",
+    "Toyohira"
+  ],
+  "福冈": [
+    "Fukuoka",
+    "Fukuoka-shi",
+    "Hakata",
+    "Chuo Ward",
+    "Tenjin",
+    "Fukuoka Ken"
+  ],
+  "仙台": [
+    "Sendai",
+    "Sendai-shi",
+    "Miyagi",
+    "Aoba",
+    "Miyagino",
+    "Wakabayashi"
+  ],
+  "广岛": [
+    "Hiroshima",
+    "Hiroshima-shi",
+    "Naka Ward",
+    "Minami Ward",
+    "Higashi Ward",
+    "Hiroshima Ken"
+  ],
+  "那霸": [
+    "Naha",
+    "Naha-shi",
+    "Okinawa",
+    "Kokusai Dori",
+    "Shuri",
+    "Tomari"
+  ],
+  "高雄": [
+    "Kaohsiung",
+    "Kaohsiung City",
+    "Lingya",
+    "Zuoying",
+    "Sanmin"
+  ]
+}

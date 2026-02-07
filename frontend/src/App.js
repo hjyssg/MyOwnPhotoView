@@ -10,6 +10,7 @@ import TimelinePage from './pages/TimelinePage';
 import AlbumsPage from './pages/AlbumsPage';
 import DateDetailPage from './pages/DateDetailPage';
 import AlbumDetailPage from './pages/AlbumDetailPage';
+import LocationDetailPage from './pages/LocationDetailPage';
 
 function AppContent() {
   const [media, setMedia] = useState([]);
@@ -175,12 +176,7 @@ function AppContent() {
         />
         <Route
           path="/map"
-          element={
-            <MapView
-              media={media}
-              openLightbox={(item, index) => openLightboxWithList(media, index)}
-            />
-          }
+          element={<MapView />}
         />
         <Route
           path="/albums"
@@ -200,6 +196,16 @@ function AppContent() {
           path="/album/:albumName"
           element={
             <AlbumDetailPage
+              allMedia={media}
+              openLightboxWithList={openLightboxWithList}
+              formatDuration={formatDuration}
+            />
+          }
+        />
+        <Route
+          path="/location/:locationKey"
+          element={
+            <LocationDetailPage
               allMedia={media}
               openLightboxWithList={openLightboxWithList}
               formatDuration={formatDuration}

@@ -16,6 +16,8 @@ Local Smart Gallery 是一个本地智能媒体库，旨在为您混乱的本地
 -   **高效浏览**:
     -   **网格视图**: 瀑布流式展示所有媒体，视频文件会以 ▶️ 图标和时长角标进行区分。
     -   **详情视图 (Lightbox)**: 点击任意文件可进入大图/播放器模式，支持键盘左右键切换上一个/下一个。
+    -   **地图聚合**: 地图页面会随缩放级别自动聚合/拆分地点标记，便于像 Apple Photos 一样浏览。
+    -   **地点详情页**: 点击地图 pin 可进入地点详情页，按时间线样式查看该地点全部照片。
 -   **简单的扫描机制**: 通过一个 API 请求即可启动对媒体文件夹的扫描和索引。
 
 ## 🛠️ 技术栈 (Tech Stack)
@@ -119,4 +121,8 @@ python backend/scripts/refresh_locations.py --directory "D:/Git/MyOwnPhotoView/m
 国家 + 省/州 + 城市
 ```
 
-中文显示来自本地映射文件：`backend/data/location_zh_map.json`。你可以在该文件中补充更多国家/省/城市的英文→中文映射；未命中的项将保留英文。
+中文显示来自本地映射文件：
+- `backend/data/location_zh_map.json`（国家/省/城市 英文→中文）
+- `backend/data/location_alias_zh.json`（别名聚合，如 Shanghai Shi/Pujiang → 上海）
+
+你可以在这两个文件中持续扩展映射与别名规则；未命中的项将保留英文。

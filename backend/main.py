@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.database import create_db_and_tables, SessionLocal, MediaItem
 from backend.scanner import scan_directory
+from backend.location_normalizer import media_item_to_dict, normalize_location_name
 import os
 import re
 import mimetypes
@@ -111,7 +112,8 @@ def scan_status_endpoint():
 
 @app.get('/api/media')
 def get_media_items(db: Session = Depends(get_db)):
-    return db.query(MediaItem).order_by(MediaItem.created_at.desc()).all()
+    items = db.query(MediaItem).order_by(MediaItem.created_at.desc()).all()
+    return [media_item_to_dict(item) for item in items]
 
 
 @app.get('/api/media/by-date')
@@ -121,12 +123,13 @@ def get_media_by_date(date: str, db: Session = Depends(get_db)):
     except ValueError:
         raise HTTPException(status_code=400, detail='Invalid date format, expected YYYY-MM-DD')
 
-    return (
+    items = (
         db.query(MediaItem)
         .filter(func.date(MediaItem.created_at) == date)
         .order_by(MediaItem.created_at.desc())
         .all()
     )
+    return [media_item_to_dict(item) for item in items]
 
 
 @app.get('/api/media/by-album')
@@ -141,7 +144,71 @@ def get_media_by_album(name: str, db: Session = Depends(get_db)):
     elif name != 'all':
         query = query.filter(MediaItem.source_type == name)
 
-    return query.order_by(MediaItem.created_at.desc()).all()
+    items = query.order_by(MediaItem.created_at.desc()).all()
+    return [media_item_to_dict(item) for item in items]
+
+
+@app.get('/api/locations')
+def get_locations(db: Session = Depends(get_db)):
+    items = (
+        db.query(MediaItem)
+        .filter(MediaItem.latitude.isnot(None), MediaItem.longitude.isnot(None))
+        .order_by(MediaItem.created_at.desc())
+        .all()
+    )
+
+    groups = {}
+    for item in items:
+        location_city, location_key = normalize_location_name(item.location_name)
+        if not location_key:
+            continue
+
+        if location_key not in groups:
+            groups[location_key] = {
+                'location_key': location_key,
+                'location_city': location_city,
+                'count': 0,
+                'sum_lat': 0.0,
+                'sum_lon': 0.0,
+                'cover_id': item.id,
+            }
+
+        groups[location_key]['count'] += 1
+        groups[location_key]['sum_lat'] += float(item.latitude)
+        groups[location_key]['sum_lon'] += float(item.longitude)
+
+    result = []
+    for _, g in groups.items():
+        if g['count'] == 0:
+            continue
+        result.append(
+            {
+                'location_key': g['location_key'],
+                'location_city': g['location_city'],
+                'count': g['count'],
+                'center_latitude': g['sum_lat'] / g['count'],
+                'center_longitude': g['sum_lon'] / g['count'],
+                'cover_id': g['cover_id'],
+            }
+        )
+
+    result.sort(key=lambda x: x['count'], reverse=True)
+    return result
+
+
+@app.get('/api/media/by-location')
+def get_media_by_location(key: str, db: Session = Depends(get_db)):
+    target = (key or '').strip().lower()
+    if not target:
+        raise HTTPException(status_code=400, detail='Missing location key')
+
+    items = db.query(MediaItem).order_by(MediaItem.created_at.desc()).all()
+    filtered = []
+    for item in items:
+        _, location_key = normalize_location_name(item.location_name)
+        if (location_key or '').lower() == target:
+            filtered.append(media_item_to_dict(item))
+    return filtered
 
 
 @app.get('/api/media/image/{item_id}')
