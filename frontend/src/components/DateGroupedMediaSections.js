@@ -9,6 +9,29 @@ function formatDateKey(createdAt) {
   return `${y}-${m}-${day}`;
 }
 
+function formatMonthKey(createdAt) {
+  const d = new Date(createdAt);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function formatYearKey(createdAt) {
+  return String(new Date(createdAt).getFullYear());
+}
+
+function buildGroupKey(createdAt, groupBy) {
+  if (groupBy === 'month') return formatMonthKey(createdAt);
+  if (groupBy === 'year') return formatYearKey(createdAt);
+  return formatDateKey(createdAt);
+}
+
+function getGroupSortTime(key, groupBy) {
+  if (groupBy === 'year') return new Date(`${key}-01-01`).getTime();
+  if (groupBy === 'month') return new Date(`${key}-01`).getTime();
+  return new Date(key).getTime();
+}
+
 function DateGroupedMediaSections({
   items,
   openLightboxWithList,
@@ -20,21 +43,23 @@ function DateGroupedMediaSections({
   showDateLink = false,
   collapsible = true,
   headerStyle,
+  groupBy = 'day',
+  expandedKeyPrefix,
 }) {
   const [internalExpandedDates, setInternalExpandedDates] = useState(new Set());
 
   const groups = useMemo(() => {
     return (items || []).reduce((acc, item) => {
-      const key = formatDateKey(item.created_at);
+      const key = buildGroupKey(item.created_at, groupBy);
       if (!acc[key]) acc[key] = [];
       acc[key].push(item);
       return acc;
     }, {});
-  }, [items]);
+  }, [items, groupBy]);
 
   const orderedDates = useMemo(
-    () => Object.keys(groups).sort((a, b) => new Date(b) - new Date(a)),
-    [groups]
+    () => Object.keys(groups).sort((a, b) => getGroupSortTime(b, groupBy) - getGroupSortTime(a, groupBy)),
+    [groups, groupBy]
   );
 
   const activeExpandedDates = expandedDates || internalExpandedDates;
@@ -57,8 +82,9 @@ function DateGroupedMediaSections({
 
   return orderedDates.map((dateKey) => {
     const dateItems = groups[dateKey];
+    const expandedKey = expandedKeyPrefix ? `${expandedKeyPrefix}:${dateKey}` : dateKey;
     const hasHidden = collapsible && dateItems.length > showLimit;
-    const isExpanded = activeExpandedDates.has(dateKey);
+    const isExpanded = activeExpandedDates.has(expandedKey);
     const visibleItems = hasHidden && !isExpanded ? dateItems.slice(0, showLimit) : dateItems;
     const locationNames = showLocationNames
       ? Array.from(new Set(dateItems.map((m) => m.location_name).filter(Boolean)))
@@ -68,7 +94,7 @@ function DateGroupedMediaSections({
       <div key={dateKey} className={`date-group ${dateItems.length > 20 ? 'busy-day' : ''}`}>
         <div
           className="group-header"
-          onClick={() => toggle(dateKey)}
+          onClick={() => toggle(expandedKey)}
           style={{ cursor: collapsible ? 'pointer' : 'default', ...headerStyle }}
         >
           <div className="group-info">
@@ -96,7 +122,7 @@ function DateGroupedMediaSections({
               className="expand-toggle"
               onClick={(e) => {
                 e.stopPropagation();
-                toggle(dateKey);
+                toggle(expandedKey);
               }}
             >
               {isExpanded ? 'Collapse' : 'Expand'}

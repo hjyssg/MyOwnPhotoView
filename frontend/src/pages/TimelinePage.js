@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DateGroupedMediaSections from '../components/DateGroupedMediaSections';
 
 function TimelinePage({
@@ -13,21 +13,41 @@ function TimelinePage({
   loaderRef,
   hasMore,
 }) {
+  const [groupBy, setGroupBy] = useState('day');
+
   return (
     <div className="gallery-container">
-      <div className="timeline-filters">
-        {['all', 'camera', 'screenshot', 'video'].map((filterName) => (
-          <button
-            key={filterName}
-            className={(activeFilter?.name || 'all') === filterName ? 'active' : ''}
-            onClick={() => {
-              if (filterName === 'all') setActiveFilter(null);
-              else setActiveFilter({ name: filterName, items: smartAlbums[filterName] });
-            }}
-          >
-            {filterName.toUpperCase()}
-          </button>
-        ))}
+      <div className="timeline-toolbar">
+        <div className="timeline-filters">
+          {['all', 'camera', 'screenshot', 'video'].map((filterName) => (
+            <button
+              key={filterName}
+              className={(activeFilter?.name || 'all') === filterName ? 'active' : ''}
+              onClick={() => {
+                if (filterName === 'all') setActiveFilter(null);
+                else setActiveFilter({ name: filterName, items: smartAlbums[filterName] });
+              }}
+            >
+              {filterName.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        <div className="timeline-filters timeline-aggregate-filters">
+          {[
+            { key: 'day', label: '按日' },
+            { key: 'month', label: '按月' },
+            { key: 'year', label: '按年' },
+          ].map((mode) => (
+            <button
+              key={mode.key}
+              className={groupBy === mode.key ? 'active' : ''}
+              onClick={() => setGroupBy(mode.key)}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {displayedMedia.length === 0 ? (
@@ -41,7 +61,9 @@ function TimelinePage({
           onToggleDate={toggleDate}
           showLimit={8}
           showLocationNames
-          showDateLink
+          showDateLink={groupBy === 'day'}
+          groupBy={groupBy}
+          expandedKeyPrefix={groupBy}
           collapsible
         />
       )}

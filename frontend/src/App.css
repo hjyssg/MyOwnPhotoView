@@ -262,6 +262,17 @@ h1 {
   background: var(--panel);
 }
 
+.timeline-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.timeline-aggregate-filters {
+  margin-left: 0.2rem;
+}
+
 .timeline-filters button {
   background: transparent;
   border: 1px solid transparent;
@@ -754,6 +765,15 @@ h1 {
   .group-info {
     flex-direction: column;
     gap: 0.45rem;
+  }
+
+  .timeline-toolbar {
+    align-items: stretch;
+  }
+
+  .timeline-filters {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .album-name {
