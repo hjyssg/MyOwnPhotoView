@@ -145,14 +145,16 @@ const MapView = () => {
         : [31.2304, 121.4737];
 
     return (
-        <div style={{ height: 'calc(100vh - 80px)', width: '100%', borderRadius: '12px', overflow: 'hidden' }}>
-            <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <ClusteredLocationMarkers locations={locations} />
-            </MapContainer>
+        <div className="map-page-shell">
+            <div className="map-frame">
+                <MapContainer center={center} zoom={5} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <ClusteredLocationMarkers locations={locations} />
+                </MapContainer>
+            </div>
         </div>
     );
 };

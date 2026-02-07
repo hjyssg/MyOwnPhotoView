@@ -42,7 +42,9 @@ function AlbumDetailPage({ openLightboxWithList, formatDuration, allMedia }) {
     <div className="gallery-container">
       <h2>{safeName.toUpperCase()}</h2>
       {loading ? (
-        <div className="loading-indicator">Loading...</div>
+        <div className="loading-indicator">
+          <span className="loading-spinner" aria-label="Loading" />
+        </div>
       ) : (
         <MediaGrid
           items={items}
