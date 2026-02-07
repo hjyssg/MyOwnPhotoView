@@ -15,6 +15,9 @@ function Navigation() {
       <Link to="/albums" className={location.pathname === '/albums' ? 'active' : ''}>
         Albums
       </Link>
+      <Link to="/scan" className={location.pathname === '/scan' ? 'active' : ''}>
+        Scan
+      </Link>
     </nav>
   );
 }

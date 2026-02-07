@@ -1,16 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import './App.css';
 import Lightbox from './Lightbox';
 import MapView from './MapView';
 import Navigation from './components/Navigation';
-import ScanControls from './components/ScanControls';
 import TimelinePage from './pages/TimelinePage';
 import AlbumsPage from './pages/AlbumsPage';
 import DateDetailPage from './pages/DateDetailPage';
 import AlbumDetailPage from './pages/AlbumDetailPage';
 import LocationDetailPage from './pages/LocationDetailPage';
+import ScanPage from './pages/ScanPage';
 
 function AppContent() {
   const [media, setMedia] = useState([]);
@@ -18,8 +18,6 @@ function AppContent() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [lightboxItems, setLightboxItems] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [scanPath, setScanPath] = useState('C:\\Users\\Administrator\\Desktop\\test');
-  const [isScanning, setIsScanning] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null);
   const [expandedDates, setExpandedDates] = useState(new Set());
@@ -123,20 +121,6 @@ function AppContent() {
     setSelectedItem(lightboxItems[prevIndex]);
   }, [currentIndex, lightboxItems]);
 
-  const handleScan = async () => {
-    setIsScanning(true);
-    try {
-      await axios.post(`/api/scan?directory=${encodeURIComponent(scanPath)}`);
-      showToast('Scan completed', 'success');
-      await fetchMedia();
-    } catch (error) {
-      console.error('Scan failed:', error);
-      showToast('Scan failed', 'error');
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
   const formatDuration = (seconds) => {
     if (!seconds) return '0:00';
     const m = Math.floor(seconds / 60);
@@ -158,15 +142,11 @@ function AppContent() {
     <div className="App">
       <header className="App-header">
         <div className="header-left">
-          <h1>Local Smart Gallery</h1>
+          <h1>
+            <Link to="/" className="home-link">Local Smart Gallery</Link>
+          </h1>
           <Navigation />
         </div>
-        <ScanControls
-          scanPath={scanPath}
-          setScanPath={setScanPath}
-          isScanning={isScanning}
-          onScan={handleScan}
-        />
       </header>
 
       <Routes>
@@ -224,6 +204,10 @@ function AppContent() {
               formatDuration={formatDuration}
             />
           }
+        />
+        <Route
+          path="/scan"
+          element={<ScanPage onScanCompleted={fetchMedia} showToast={showToast} />}
         />
       </Routes>
 

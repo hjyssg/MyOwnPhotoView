@@ -70,6 +70,15 @@ h1 {
   white-space: nowrap;
 }
 
+.home-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.home-link:hover {
+  opacity: 0.9;
+}
+
 .nav-bar {
   display: flex;
   gap: 0.25rem;
@@ -145,6 +154,86 @@ h1 {
   font-size: 0.75rem;
   color: var(--brand);
   font-weight: 600;
+}
+
+.scan-page-panel {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  padding: 14px;
+}
+
+.scan-add-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.scan-add-row input {
+  flex: 1;
+  min-width: 320px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--line);
+  color: var(--text-primary);
+  padding: 0.62rem 0.9rem;
+  border-radius: 11px;
+  outline: none;
+}
+
+.scan-add-row button,
+.scan-folder-actions button {
+  border: none;
+  color: #fff;
+  padding: 0.56rem 0.9rem;
+  border-radius: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+}
+
+.scan-add-row button:disabled,
+.scan-folder-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.scan-status {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.scan-folder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scan-folder-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.scan-folder-item > span {
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-folder-actions {
+  display: flex;
+  gap: 6px;
 }
 
 .gallery-container,
@@ -276,14 +365,23 @@ h1 {
 
 .gallery-item {
   position: relative;
+  z-index: 1;
   border-radius: var(--radius-md);
   aspect-ratio: 16/11;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(124, 147, 196, 0.24);
   background: #dfe7ff;
   box-shadow: 0 10px 22px rgba(90, 111, 156, 0.16);
   cursor: pointer;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.media-visual {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .gallery-item::after {
@@ -294,7 +392,64 @@ h1 {
   pointer-events: none;
 }
 
+.media-hover-card {
+  position: absolute;
+  top: 0;
+  width: min(380px, 46vw);
+  max-height: 100%;
+  z-index: 10;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: rgba(242, 246, 255, 0.98);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  border-radius: 12px;
+  border: 1px solid rgba(145, 171, 226, 0.35);
+  background: linear-gradient(145deg, rgba(20, 31, 58, 0.95), rgba(16, 27, 52, 0.93));
+  box-shadow: 0 14px 30px rgba(16, 28, 56, 0.38);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.media-hover-card.side-right {
+  left: calc(100% + 12px);
+}
+
+.media-hover-card.side-left {
+  right: calc(100% + 12px);
+}
+
+.gallery-item:hover .media-hover-card {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.meta-row {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.meta-path {
+  max-height: 6.2em;
+  overflow: auto;
+  word-break: break-all;
+}
+
+.meta-path::-webkit-scrollbar {
+  width: 6px;
+}
+
+.meta-path::-webkit-scrollbar-thumb {
+  background: rgba(172, 191, 233, 0.45);
+  border-radius: 999px;
+}
+
 .gallery-item:hover {
+  z-index: 40;
   transform: translateY(-4px);
   box-shadow: 0 16px 28px rgba(74, 94, 138, 0.22);
 }
