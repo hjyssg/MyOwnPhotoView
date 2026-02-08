@@ -9,6 +9,11 @@ function SettingsPage({ onScanCompleted, showToast }) {
   const [isSyncingSettings, setIsSyncingSettings] = useState(false);
   const [isPurgingSoftDeleted, setIsPurgingSoftDeleted] = useState(false);
   const [isCleaningUnusedThumbnails, setIsCleaningUnusedThumbnails] = useState(false);
+  const [networkAccess, setNetworkAccess] = useState({
+    preferred_url: '',
+    candidate_urls: [],
+  });
+  const [isLoadingNetworkAccess, setIsLoadingNetworkAccess] = useState(false);
   const [appSettings, setAppSettings] = useState({
     auto_scan_on_startup: false,
     scan_mode: 'incremental',
@@ -61,11 +66,39 @@ function SettingsPage({ onScanCompleted, showToast }) {
     }
   }, [showToast]);
 
+  const loadNetworkAccess = useCallback(async () => {
+    setIsLoadingNetworkAccess(true);
+    try {
+      const res = await axios.get('/api/network/access');
+      const preferred = String(res.data?.preferred_url || '').trim();
+      const candidates = Array.isArray(res.data?.candidate_urls)
+        ? res.data.candidate_urls.map((v) => String(v || '').trim()).filter(Boolean)
+        : [];
+
+      const currentOrigin = window.location.origin;
+      const currentHost = window.location.hostname;
+      const isCurrentLanOrigin = !['localhost', '127.0.0.1'].includes(currentHost);
+      const effectivePreferred = isCurrentLanOrigin ? currentOrigin : (preferred || candidates[0] || currentOrigin);
+
+      const mergedCandidates = Array.from(new Set([effectivePreferred, ...candidates, currentOrigin].filter(Boolean)));
+      setNetworkAccess({
+        preferred_url: effectivePreferred,
+        candidate_urls: mergedCandidates,
+      });
+    } catch (error) {
+      console.error('Failed to load network access info', error);
+      setNetworkAccess({ preferred_url: window.location.origin, candidate_urls: [window.location.origin] });
+    } finally {
+      setIsLoadingNetworkAccess(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadFolders();
     loadScanStatus();
     loadSettings();
-  }, [loadFolders, loadScanStatus, loadSettings]);
+    loadNetworkAccess();
+  }, [loadFolders, loadScanStatus, loadSettings, loadNetworkAccess]);
 
   useEffect(() => {
     if (!scanStatus?.is_running) return undefined;
@@ -229,14 +262,27 @@ function SettingsPage({ onScanCompleted, showToast }) {
     }
   };
 
-  const statusText = useMemo(() => {
-    if (scanStatus?.is_running) {
-      return '扫描中';
+  const copyNetworkUrl = useCallback(async () => {
+    const target = networkAccess.preferred_url || window.location.origin;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(target);
+        showToast?.('链接已复制', 'success');
+        return;
+      }
+
+      const input = document.createElement('input');
+      input.value = target;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      showToast?.('链接已复制', 'success');
+    } catch (error) {
+      console.error('Failed to copy url', error);
+      showToast?.('复制失败，请手动复制', 'error');
     }
-    if (scanStatus?.message === 'completed') return 'Last scan completed';
-    if (scanStatus?.message === 'failed') return `Failed: ${scanStatus.error || 'unknown error'}`;
-    return 'Idle';
-  }, [scanStatus]);
+  }, [networkAccess.preferred_url, showToast]);
 
   const etaText = useMemo(() => {
     if (!scanStatus?.is_running) return '';
@@ -345,6 +391,45 @@ function SettingsPage({ onScanCompleted, showToast }) {
 
         <div className="scan-status" style={{ marginTop: 4, marginBottom: 10, fontWeight: 700, color: 'var(--text-primary)' }}>
           Folder Management
+        </div>
+
+        <div className="scan-status" style={{ marginTop: 4, marginBottom: 10, fontWeight: 700, color: 'var(--text-primary)' }}>
+          局域网访问（iPad 扫码）
+        </div>
+        <div className="scan-page-panel network-access-panel" style={{ marginBottom: 12 }}>
+          <div className="network-access-main">
+            <img
+              src={`/api/network/qrcode?target=${encodeURIComponent(networkAccess.preferred_url || window.location.origin)}`}
+              alt="局域网访问二维码"
+              className="network-qr"
+            />
+            <div className="network-access-info">
+              <div className="scan-status" style={{ marginBottom: 6 }}>
+                iPad 用相机扫码即可打开：
+              </div>
+              <a
+                href={networkAccess.preferred_url || window.location.origin}
+                target="_blank"
+                rel="noreferrer"
+                className="network-link"
+              >
+                {networkAccess.preferred_url || window.location.origin}
+              </a>
+              <div className="scan-add-row" style={{ marginTop: 10, marginBottom: 8 }}>
+                <button onClick={copyNetworkUrl}>复制链接</button>
+                <button onClick={loadNetworkAccess} disabled={isLoadingNetworkAccess}>
+                  {isLoadingNetworkAccess ? '刷新中...' : '刷新地址'}
+                </button>
+              </div>
+              {!!networkAccess.candidate_urls.length && (
+                <div className="network-candidates">
+                  {networkAccess.candidate_urls.slice(0, 4).map((url) => (
+                    <span key={url}>{url}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* <div className="scan-status">Status: {statusText}</div> */}

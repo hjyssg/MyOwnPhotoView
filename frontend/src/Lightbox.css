@@ -142,3 +142,10 @@
 .next-btn:active {
   background: rgba(255, 255, 255, 0.22);
 }
+
+@media (hover: none) and (pointer: coarse) and (min-width: 768px) {
+  .prev-btn,
+  .next-btn {
+    display: none;
+  }
+}

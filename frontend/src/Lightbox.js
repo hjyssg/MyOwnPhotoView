@@ -30,6 +30,7 @@ function formatDateTime(value) {
 const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev, onTrashItem }) => {
   const videoRef = useRef(null);
   const preloadRef = useRef({ timer: null, img: null });
+  const touchRef = useRef({ x: 0, y: 0, active: false });
   const [showInfo, setShowInfo] = useState(false);
   const [isCurrentImageLoaded, setIsCurrentImageLoaded] = useState(false);
   const [scale, setScale] = useState(1);
@@ -153,6 +154,36 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev,
     };
   }, [onClose, onNext, onPrev, item, zoomBy, resetZoom, handleTrash]);
 
+  const handleTouchStart = useCallback((e) => {
+    if (!e.touches || e.touches.length !== 1) {
+      touchRef.current = { x: 0, y: 0, active: false };
+      return;
+    }
+    const touch = e.touches[0];
+    touchRef.current = { x: touch.clientX, y: touch.clientY, active: true };
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e) => {
+      if (!touchRef.current.active || !e.changedTouches || e.changedTouches.length !== 1) return;
+
+      const endTouch = e.changedTouches[0];
+      const deltaX = endTouch.clientX - touchRef.current.x;
+      const deltaY = endTouch.clientY - touchRef.current.y;
+      touchRef.current = { x: 0, y: 0, active: false };
+
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      const SWIPE_THRESHOLD = 56;
+
+      if (absX < SWIPE_THRESHOLD || absX <= absY * 1.2) return;
+
+      if (deltaX < 0) onNext();
+      else onPrev();
+    },
+    [onNext, onPrev]
+  );
+
   return (
     <div
       className="lightbox-backdrop"
@@ -169,6 +200,8 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev,
           e.preventDefault();
           e.stopPropagation();
         }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         <button className="close-btn" onClick={onClose}>×</button>
         <button

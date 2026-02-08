@@ -85,17 +85,20 @@ Local Smart Gallery 是一个本地智能媒体库，旨在为您混乱的本地
         ```
         服务器将在 `http://localhost:8000` 运行。
 
-    -   **启动前端开发服务器**:
+    -   **启动前端开发服务器（局域网可访问）**:
         *打开一个新的终端窗口*
         ```bash
         cd frontend
-        npm start
+        HOST=0.0.0.0 npm start
         ```
-        应用将在 `http://localhost:3000` 自动打开。
+        应用将在 `http://localhost:3000` 自动打开，并可通过同一局域网 IP（如 `http://192.168.x.x:3000`）访问。
+
+        > Windows PowerShell 可用：`$env:HOST="0.0.0.0"; npm start`
 
 6.  **开始使用 (Start Using)**:
     -   打开浏览器，访问 `http://localhost:3000`。
     -   打开页面顶部的 **"Settings"** 页面，配置扫描目录、自动扫描开关与扫描策略。
+    -   在 Settings 页可看到“局域网访问（iPad 扫码）”二维码，iPad 用相机扫码即可打开网页。
     -   在 Settings 页面点击 **Scan All**（或单目录 Scan），后端将开始索引媒体文件。
     -   扫描完成后，您的照片和视频画廊将呈现在页面上。享受吧！
 

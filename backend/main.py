@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
@@ -15,6 +16,10 @@ import datetime
 import json
 import math
 import shutil
+import socket
+import ipaddress
+import io
+import qrcode
 try:
     from send2trash import send2trash
 except Exception:
@@ -25,6 +30,18 @@ os.makedirs('backend/cache/thumbnails', exist_ok=True)
 os.makedirs('backend/media', exist_ok=True)
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+    ],
+    allow_origin_regex=r'^https?://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?$',
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*'],
+)
 
 app.mount('/thumbnails', StaticFiles(directory='backend/cache/thumbnails'), name='thumbnails')
 app.mount('/media', StaticFiles(directory='backend/media'), name='media')
@@ -447,6 +464,100 @@ def _cleanup_unused_thumbnails(db: Session) -> dict:
         'deleted_thumbnails': deleted_thumbnails,
         'kept_thumbnails': kept_thumbnails,
     }
+
+
+def _is_private_ipv4(value: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(value)
+        return isinstance(ip, ipaddress.IPv4Address) and (ip.is_private or ip.is_loopback)
+    except Exception:
+        return False
+
+
+def _collect_local_ipv4_candidates() -> list[str]:
+    candidates = set()
+
+    try:
+        host_name = socket.gethostname()
+        _, _, addrs = socket.gethostbyname_ex(host_name)
+        for ip in addrs:
+            if _is_private_ipv4(ip):
+                candidates.add(ip)
+    except Exception:
+        pass
+
+    try:
+        infos = socket.getaddrinfo(socket.gethostname(), None, family=socket.AF_INET)
+        for info in infos:
+            ip = info[4][0]
+            if _is_private_ipv4(ip):
+                candidates.add(ip)
+    except Exception:
+        pass
+
+    ordered = sorted(candidates)
+    return ordered
+
+
+def _build_access_url_candidates(request: Request) -> list[str]:
+    urls = []
+    seen = set()
+
+    def push(url: str):
+        if not url:
+            return
+        if url in seen:
+            return
+        seen.add(url)
+        urls.append(url)
+
+    frontend_port = os.getenv('FRONTEND_PORT', '3000').strip() or '3000'
+    frontend_scheme = os.getenv('FRONTEND_SCHEME', 'http').strip() or 'http'
+    frontend_host = os.getenv('FRONTEND_HOST', '').strip()
+    if frontend_host:
+        push(f'{frontend_scheme}://{frontend_host}:{frontend_port}')
+
+    host = (request.url.hostname or '').strip()
+    if host and host not in ('localhost', '127.0.0.1'):
+        push(f'http://{host}:{frontend_port}')
+
+    for ip in _collect_local_ipv4_candidates():
+        if ip in ('127.0.0.1',):
+            continue
+        push(f'http://{ip}:{frontend_port}')
+
+    push('http://localhost:3000')
+    return urls
+
+
+@app.get('/api/network/access')
+def get_network_access_info(request: Request):
+    candidates = _build_access_url_candidates(request)
+    preferred = candidates[0] if candidates else 'http://localhost:3000'
+    return {
+        'preferred_url': preferred,
+        'candidate_urls': candidates,
+    }
+
+
+@app.get('/api/network/qrcode')
+def get_network_access_qrcode(request: Request, target: str | None = None):
+    candidates = _build_access_url_candidates(request)
+    fallback = candidates[0] if candidates else 'http://localhost:3000'
+    content = (target or '').strip() or fallback
+
+    qr_img = qrcode.make(content)
+    buffer = io.BytesIO()
+    qr_img.save(buffer, format='PNG')
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type='image/png',
+        headers={
+            'Cache-Control': 'no-store',
+        },
+    )
 
 
 @app.on_event('startup')

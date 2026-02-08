@@ -16,6 +16,7 @@ import BusyDaysPage from './pages/BusyDaysPage';
 function AppContent() {
   const location = useLocation();
   const [media, setMedia] = useState([]);
+  const [mediaLoading, setMediaLoading] = useState(true);
   const [displayedMedia, setDisplayedMedia] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
   const [lightboxItems, setLightboxItems] = useState([]);
@@ -50,11 +51,14 @@ function AppContent() {
   );
 
   const fetchMedia = useCallback(async () => {
+    setMediaLoading(true);
     try {
       const response = await axios.get('/api/media');
       setMedia(response.data);
     } catch (error) {
       console.error('Error fetching media:', error);
+    } finally {
+      setMediaLoading(false);
     }
   }, []);
 
@@ -276,6 +280,7 @@ function AppContent() {
             <TimelinePage
               sourceMedia={currentSourceList}
               displayedMedia={displayedMedia}
+              mediaLoading={mediaLoading}
               activeFilter={activeFilter}
               setActiveFilter={setActiveFilter}
               smartAlbums={smartAlbums}

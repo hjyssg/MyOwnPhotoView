@@ -163,6 +163,59 @@ h1 {
   padding: 14px;
 }
 
+.network-access-panel {
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.network-access-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.network-qr {
+  width: 132px;
+  height: 132px;
+  border-radius: 10px;
+  border: 1px solid rgba(112, 139, 198, 0.26);
+  background: #fff;
+  padding: 4px;
+  object-fit: contain;
+}
+
+.network-access-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.network-link {
+  display: inline-block;
+  max-width: 100%;
+  word-break: break-all;
+  color: #315fc6;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.network-link:hover {
+  text-decoration: underline;
+}
+
+.network-candidates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.network-candidates span {
+  font-size: 12px;
+  color: var(--text-secondary);
+  border: 1px solid rgba(112, 139, 198, 0.22);
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
 .scan-add-row {
   display: flex;
   gap: 8px;
@@ -234,6 +287,10 @@ h1 {
 .scan-folder-actions {
   display: flex;
   gap: 6px;
+}
+
+.scan-folder-meta {
+  flex-shrink: 0;
 }
 
 .gallery-container,
@@ -899,6 +956,41 @@ h1 {
   }
 }
 
+@media (max-width: 1024px) {
+  .scan-folder-item {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .scan-folder-item > span:first-child {
+    width: 100%;
+  }
+
+  .scan-folder-meta {
+    margin-left: 0 !important;
+  }
+
+  .scan-folder-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .scan-folder-actions button,
+  .scan-add-row button {
+    min-height: 42px;
+    padding: 0.62rem 0.95rem;
+  }
+
+  .scan-add-row input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .network-access-main {
+    align-items: flex-start;
+  }
+}
+
 @media (max-width: 768px) {
   .gallery-container,
   .albums-container,
@@ -960,6 +1052,10 @@ h1 {
   .busy-day-thumb {
     width: 30px;
     height: 30px;
+  }
+
+  .network-access-main {
+    flex-direction: column;
   }
 }
 
