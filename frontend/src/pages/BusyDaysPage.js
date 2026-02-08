@@ -1,15 +1,40 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  normalizeBooleanFlagParam,
+  normalizeNumberEnumParam,
+  readBooleanFlagParam,
+  readNumberEnumParam,
+  withBooleanFlagParam,
+  withParam,
+} from '../utils/urlState';
 
 function BusyDaysPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [minCount, setMinCount] = useState(30);
-  const [onlyCamera, setOnlyCamera] = useState(false);
+  const minCount = readNumberEnumParam(searchParams, 'minCount', [20, 30, 50, 80, 100], 30);
+  const onlyCamera = readBooleanFlagParam(searchParams, 'onlyCamera', '1');
+
+  useEffect(() => {
+    let next = normalizeNumberEnumParam(searchParams, 'minCount', [20, 30, 50, 80, 100], 30);
+    if (!next) next = normalizeBooleanFlagParam(searchParams, 'onlyCamera', '1');
+    if (next) setSearchParams(next, { replace: true });
+  }, [minCount, onlyCamera, searchParams, setSearchParams]);
+
+  const updateMinCount = (value) => {
+    const next = withParam(searchParams, 'minCount', value, { defaultValue: 30 });
+    setSearchParams(next, { replace: true });
+  };
+
+  const updateOnlyCamera = (enabled) => {
+    const next = withBooleanFlagParam(searchParams, 'onlyCamera', enabled, '1');
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
     let canceled = false;
@@ -56,7 +81,7 @@ function BusyDaysPage() {
       <div className="busy-days-toolbar">
         <label>
           最小数量
-          <select value={minCount} onChange={(e) => setMinCount(Number(e.target.value))}>
+          <select value={minCount} onChange={(e) => updateMinCount(Number(e.target.value))}>
             {[20, 30, 50, 80, 100].map((v) => (
               <option key={v} value={v}>{v}</option>
             ))}
@@ -67,7 +92,7 @@ function BusyDaysPage() {
           <input
             type="checkbox"
             checked={onlyCamera}
-            onChange={(e) => setOnlyCamera(e.target.checked)}
+            onChange={(e) => updateOnlyCamera(e.target.checked)}
           />
           仅相机拍摄
         </label>

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Link, useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
 import Lightbox from './components/lightbox/Lightbox';
 import MapView from './components/map/MapView';
@@ -12,6 +12,11 @@ import AlbumDetailPage from './pages/AlbumDetailPage';
 import LocationDetailPage from './pages/LocationDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import BusyDaysPage from './pages/BusyDaysPage';
+import {
+  normalizeCsvEnumSetParam,
+  readCsvEnumSetParam,
+  withCsvEnumSetParam,
+} from './utils/urlState';
 
 const AVAILABLE_FILTER_KEYS = ['camera', 'screenshot', 'video', 'etc'];
 
@@ -28,6 +33,7 @@ function AppContent() {
   }, []);
 
   const location = useLocation();
+  const navigate = useNavigate();
   const [media, setMedia] = useState([]);
   const [mediaLoading, setMediaLoading] = useState(true);
   const [displayedMedia, setDisplayedMedia] = useState([]);
@@ -35,7 +41,6 @@ function AppContent() {
   const [lightboxItems, setLightboxItems] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [toast, setToast] = useState(null);
-  const [activeFilters, setActiveFilters] = useState(new Set());
   const [expandedDates, setExpandedDates] = useState(new Set());
 
   const loaderRef = useRef(null);
@@ -65,6 +70,32 @@ function AppContent() {
     }),
     [media]
   );
+
+  const activeFilters = useMemo(() => {
+    if (location.pathname !== '/') return new Set();
+
+    const params = new URLSearchParams(location.search);
+    return new Set(readCsvEnumSetParam(params, 'filters', AVAILABLE_FILTER_KEYS));
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (location.pathname !== '/') return;
+
+    const next = normalizeCsvEnumSetParam(
+      new URLSearchParams(location.search),
+      'filters',
+      AVAILABLE_FILTER_KEYS
+    );
+    if (!next) return;
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: next.toString() ? `?${next.toString()}` : '',
+      },
+      { replace: true }
+    );
+  }, [location.pathname, location.search, navigate]);
 
   const filteredSourceMedia = useMemo(() => {
     if (!activeFilters.size) return media;
@@ -210,17 +241,32 @@ function AppContent() {
     [lightboxItems, media, showToast]
   );
 
-  const handleToggleFilter = useCallback((filterKey) => {
-    setActiveFilters((prev) => {
-      if (filterKey === 'all') return new Set();
-      if (!AVAILABLE_FILTER_KEYS.includes(filterKey)) return prev;
+  const handleToggleFilter = useCallback(
+    (filterKey) => {
+      if (location.pathname !== '/') return;
 
-      const next = new Set(prev);
-      if (next.has(filterKey)) next.delete(filterKey);
-      else next.add(filterKey);
-      return next;
-    });
-  }, []);
+      const current = new Set(activeFilters);
+
+      if (filterKey === 'all') {
+        current.clear();
+      } else if (AVAILABLE_FILTER_KEYS.includes(filterKey)) {
+        if (current.has(filterKey)) current.delete(filterKey);
+        else current.add(filterKey);
+      }
+
+      const nextFilters = Array.from(current);
+      const next = withCsvEnumSetParam(new URLSearchParams(location.search), 'filters', nextFilters);
+
+      navigate(
+        {
+          pathname: location.pathname,
+          search: next.toString() ? `?${next.toString()}` : '',
+        },
+        { replace: true }
+      );
+    },
+    [activeFilters, location.pathname, location.search, navigate]
+  );
 
   const showNext = useCallback(() => {
     if (!lightboxItems.length) return;

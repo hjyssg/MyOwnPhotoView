@@ -1,15 +1,42 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import DateGroupedMediaSections from '../components/DateGroupedMediaSections';
 import TopControlBar from '../components/TopControlBar';
+import { normalizeEnumParam, readEnumParam, withParam } from '../utils/urlState';
 
 function LocationDetailPage({ openLightboxWithList, formatDuration, allMedia }) {
   const { locationKey } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [groupBy, setGroupBy] = useState('day');
+
+  const activeFilterParam = searchParams.get('filter');
+  const activeFilter = readEnumParam(
+    searchParams,
+    'filter',
+    ['all', 'camera', 'screenshot', 'video', 'etc'],
+    'all'
+  );
+
+  const groupByParam = searchParams.get('groupBy');
+  const groupBy = readEnumParam(searchParams, 'groupBy', ['day', 'month', 'year'], 'day');
+
+  useEffect(() => {
+    let next = normalizeEnumParam(searchParams, 'filter', ['all', 'camera', 'screenshot', 'video', 'etc'], 'all');
+    if (!next) next = normalizeEnumParam(searchParams, 'groupBy', ['day', 'month', 'year'], 'day');
+    if (next) setSearchParams(next, { replace: true });
+  }, [activeFilter, activeFilterParam, groupBy, groupByParam, searchParams, setSearchParams]);
+
+  const handleFilterChange = (value) => {
+    const next = withParam(searchParams, 'filter', value || 'all', { defaultValue: 'all' });
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleGroupByChange = (value) => {
+    const next = withParam(searchParams, 'groupBy', value || 'day', { defaultValue: 'day' });
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
     let canceled = false;
@@ -51,9 +78,9 @@ function LocationDetailPage({ openLightboxWithList, formatDuration, allMedia }) 
 
       <TopControlBar
         activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
+        onFilterChange={handleFilterChange}
         groupBy={groupBy}
-        onGroupByChange={setGroupBy}
+        onGroupByChange={handleGroupByChange}
       />
 
       {loading ? (

@@ -2,6 +2,7 @@ import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DateGroupedMediaSections from '../components/DateGroupedMediaSections';
 import TopControlBar from '../components/TopControlBar';
+import { normalizeEnumParam, readEnumParam, withParam } from '../utils/urlState';
 
 function TimelinePage({
   sourceMedia,
@@ -18,17 +19,20 @@ function TimelinePage({
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const groupByParam = searchParams.get('groupBy');
-  const groupBy = groupByParam === 'month' || groupByParam === 'year' || groupByParam === 'day' ? groupByParam : 'day';
+  const groupBy = readEnumParam(searchParams, 'groupBy', ['day', 'month', 'year'], 'day');
   const timelineItems = groupBy === 'day' ? displayedMedia : sourceMedia;
   const showInfiniteLoader = groupBy === 'day' && hasMore;
   const groupShowLimit = groupBy === 'year' ? 24 : groupBy === 'month' ? 16 : 8;
 
   const handleGroupByChange = (nextGroupBy) => {
-    const next = new URLSearchParams(searchParams);
-    if (nextGroupBy === 'day') next.delete('groupBy');
-    else next.set('groupBy', nextGroupBy);
-    setSearchParams(next);
+    const next = withParam(searchParams, 'groupBy', nextGroupBy, { defaultValue: 'day' });
+    setSearchParams(next, { replace: true });
   };
+
+  React.useEffect(() => {
+    const next = normalizeEnumParam(searchParams, 'groupBy', ['day', 'month', 'year'], 'day');
+    if (next) setSearchParams(next, { replace: true });
+  }, [groupBy, groupByParam, searchParams, setSearchParams]);
 
   return (
     <div className="gallery-container">
