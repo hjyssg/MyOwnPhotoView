@@ -76,7 +76,7 @@ h1 {
 }
 
 .home-link:hover {
-  opacity: 0.9;
+  opacity: 0.7;
 }
 
 .nav-bar {
@@ -731,12 +731,6 @@ h1 {
   background: rgba(255, 255, 255, 0.74);
   padding: 12px 14px;
   transition: 0.2s ease;
-}
-
-.busy-day-row:hover {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(104, 144, 224, 0.44);
 }
 
 .busy-day-date {

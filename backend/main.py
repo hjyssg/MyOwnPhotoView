@@ -438,15 +438,17 @@ def get_busy_days(
     for row in location_rows:
         date_key = row.created_at.date().isoformat()
         city, key = normalize_location_name(row.location_name)
+        # 与 Timeline 行为保持一致：只用可归一化出的地点参与“主地点”评选。
+        # 无定位信息的素材不应把当天主地点“挤掉”。
+        if not city or not key:
+            continue
         if date_key not in location_counter_by_date:
             location_counter_by_date[date_key] = {}
 
-        loc_key = key or '__unknown__'
-        loc_label = city or '未知地点'
         bucket = location_counter_by_date[date_key]
-        if loc_key not in bucket:
-            bucket[loc_key] = {'location_key': key, 'location_city': loc_label, 'count': 0}
-        bucket[loc_key]['count'] += 1
+        if key not in bucket:
+            bucket[key] = {'location_key': key, 'location_city': city, 'count': 0}
+        bucket[key]['count'] += 1
 
     items = []
     for row in busy_rows:
@@ -458,7 +460,7 @@ def get_busy_days(
                 key=lambda x: (-x['count'], x['location_city']),
             )[0]
         else:
-            top_location = {'location_key': None, 'location_city': '未知地点', 'count': 0}
+            top_location = {'location_key': None, 'location_city': None, 'count': 0}
 
         count = row['count']
         score = max(

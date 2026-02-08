@@ -88,7 +88,7 @@ function BusyDaysPage() {
           {items.map((row) => (
             <Link key={row.date_key} to={`/date/day/${row.date_key}`} className="busy-day-row">
               <div className="busy-day-date">{row.date_key}</div>
-              <div className="busy-day-city">{row.top_location_city || '未知地点'}</div>
+              <div className="busy-day-city">{row.top_location_city || '—'}</div>
               <div className="busy-day-count">{row.count} items</div>
             </Link>
           ))}

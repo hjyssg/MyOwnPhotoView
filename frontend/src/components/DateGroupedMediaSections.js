@@ -56,6 +56,7 @@ function DateGroupedMediaSections({
   formatDuration,
   showLimit = 6,
   showLocationNames = false,
+  locationDisplayMode = 'all',
   showDateLink = false,
   collapsible = true,
   headerStyle,
@@ -79,17 +80,27 @@ function DateGroupedMediaSections({
     const dateItems = groups[dateKey];
     const visibleItems = collapsible ? sampleItemsByRange(dateItems, showLimit) : dateItems;
     const locationEntries = showLocationNames
-      ? Array.from(
-          new Map(
-            dateItems
-              .map((m) => {
-                const key = (m.location_key || '').trim().toLowerCase();
-                if (!key) return null;
-                return [key, { key, label: m.location_city || m.location_name || key }];
-              })
-              .filter(Boolean)
-          ).values()
-        )
+      ? (() => {
+          const bucket = {};
+          dateItems.forEach((m) => {
+            const key = (m.location_key || '').trim().toLowerCase();
+            const label = (m.location_city || '').trim();
+            // 与 busy-days 主地点逻辑一致：仅统计可归一化出的地点
+            if (!key || !label) return;
+            if (!bucket[key]) bucket[key] = { key, label, count: 0 };
+            bucket[key].count += 1;
+          });
+
+          const sorted = Object.values(bucket).sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return a.label.localeCompare(b.label, 'zh-CN');
+          });
+
+          if (locationDisplayMode === 'top') {
+            return sorted.length ? [{ key: sorted[0].key, label: sorted[0].label }] : [];
+          }
+          return sorted.map((x) => ({ key: x.key, label: x.label }));
+        })()
       : [];
 
     return (
