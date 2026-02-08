@@ -30,6 +30,7 @@ except ImportError:
 SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic']
 SUPPORTED_VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi']
 THUMBNAIL_DIR = Path('backend/cache/thumbnails')
+COMMIT_EVERY = 300
 
 
 def get_decimal_from_dms(dms, ref):
@@ -340,6 +341,7 @@ def scan_directory(
     added_count = 0
     updated_count = 0
     skipped_count = 0
+    dirty_ops = 0
 
     candidate_files = []
     for root, _, files in os.walk(directory):
@@ -438,6 +440,7 @@ def scan_directory(
                 db_item.mtime = file_mtime
                 db_item.size = file_size
                 updated_count += 1
+                dirty_ops += 1
             else:
                 item = MediaItem(
                     id=_filename_fingerprint(filepath),
@@ -455,6 +458,7 @@ def scan_directory(
                 )
                 db.add(item)
                 added_count += 1
+                dirty_ops += 1
 
         elif ext in SUPPORTED_VIDEO_EXTENSIONS:
             if not thumbnail_path.exists() or force_rescan:
@@ -474,6 +478,7 @@ def scan_directory(
                 db_item.mtime = file_mtime
                 db_item.size = file_size
                 updated_count += 1
+                dirty_ops += 1
             else:
                 item = MediaItem(
                     id=_filename_fingerprint(filepath),
@@ -489,6 +494,11 @@ def scan_directory(
                 )
                 db.add(item)
                 added_count += 1
+                dirty_ops += 1
+
+        if dirty_ops >= COMMIT_EVERY:
+            db.commit()
+            dirty_ops = 0
 
         if progress_callback:
             progress_callback(
@@ -506,8 +516,10 @@ def scan_directory(
             _remove_thumbnail_file(item, db)
             db.delete(item)
             deleted_count += 1
+            dirty_ops += 1
 
-    db.commit()
+    if dirty_ops > 0:
+        db.commit()
     stats = {
         'added': added_count,
         'updated': updated_count,
