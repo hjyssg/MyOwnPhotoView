@@ -15,6 +15,10 @@ import datetime
 import json
 import math
 import shutil
+try:
+    from send2trash import send2trash
+except Exception:
+    send2trash = None
 
 # Ensure required static directories exist so StaticFiles doesn't fail on startup
 os.makedirs('backend/cache/thumbnails', exist_ok=True)
@@ -366,6 +370,20 @@ def _delete_thumbnail_file_by_relpath(relpath: str) -> bool:
         return False
 
 
+def _cleanup_thumbnail_if_unused(db: Session, relpath: str | None) -> bool:
+    if not relpath:
+        return False
+    refs = (
+        db.query(func.count(MediaItem.id))
+        .filter(MediaItem.thumbnail_path == relpath, MediaItem.is_deleted == 0)
+        .scalar()
+        or 0
+    )
+    if int(refs) > 0:
+        return False
+    return _delete_thumbnail_file_by_relpath(relpath)
+
+
 def _hard_delete_soft_deleted_items(db: Session) -> dict:
     items = db.query(MediaItem).filter(MediaItem.is_deleted == 1).all()
     if not items:
@@ -637,6 +655,41 @@ def cleanup_unused_thumbnails_endpoint():
 def get_media_items(db: Session = Depends(get_db)):
     items = db.query(MediaItem).filter(MediaItem.is_deleted == 0).order_by(MediaItem.created_at.desc()).all()
     return [media_item_to_dict(item) for item in items]
+
+
+@app.post('/api/media/{item_id}/trash')
+def trash_media_item(item_id: str, db: Session = Depends(get_db)):
+    if send2trash is None:
+        raise HTTPException(status_code=500, detail='send2trash is not installed on server')
+
+    item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
+    if not item or int(item.is_deleted or 0) == 1:
+        raise HTTPException(status_code=404, detail='Media item not found')
+
+    file_path = item.filepath
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail='File not found')
+
+    try:
+        send2trash(file_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Failed to move to recycle bin: {e}')
+
+    now = datetime.datetime.utcnow()
+    item.is_deleted = 1
+    item.deleted_at = now
+    db.commit()
+
+    thumbnail_removed = False
+    if item.media_type == 'video':
+        thumbnail_removed = _cleanup_thumbnail_if_unused(db, item.thumbnail_path)
+
+    return {
+        'status': 'ok',
+        'id': item.id,
+        'trashed': True,
+        'thumbnail_removed': bool(thumbnail_removed),
+    }
 
 
 @app.get('/api/media/by-date')

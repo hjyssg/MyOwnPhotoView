@@ -1,6 +1,6 @@
 :root {
-  --lb-backdrop: rgba(0, 0, 0, 0.95);
-  --lb-text: #ffffff;
+  --lb-backdrop: rgba(255, 255, 255, 0.85);
+  --lb-text: #111111;
 }
 
 .lightbox-backdrop {
@@ -43,9 +43,9 @@
   max-width: 95%;
   max-height: 95%;
   object-fit: contain;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
   border-radius: 8px;
-  animation: scaleUp 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  /* animation: scaleUp 0.4s cubic-bezier(0.23, 1, 0.32, 1); */
+  /* transform-origin: center center; */
 }
 
 @keyframes scaleUp {
@@ -65,9 +65,9 @@
 .prev-btn,
 .next-btn {
   position: absolute;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: white;
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #111;
   font-size: 2rem;
   cursor: pointer;
   z-index: 2100;
@@ -84,7 +84,7 @@
 .info-btn:hover,
 .prev-btn:hover,
 .next-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.18);
 }
 
 .close-btn {

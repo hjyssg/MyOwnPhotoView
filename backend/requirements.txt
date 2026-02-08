@@ -8,3 +8,4 @@ piexif
 python-multipart
 reverse_geocoder
 xxhash
+send2trash

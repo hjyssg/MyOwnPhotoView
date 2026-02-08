@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './Lightbox.css';
 
 function formatFileSize(bytes) {
@@ -27,15 +27,57 @@ function formatDateTime(value) {
   return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
 }
 
-const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev }) => {
+const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev, onTrashItem }) => {
   const videoRef = useRef(null);
   const preloadRef = useRef({ timer: null, img: null });
   const [showInfo, setShowInfo] = useState(false);
   const [isCurrentImageLoaded, setIsCurrentImageLoaded] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [isTrashing, setIsTrashing] = useState(false);
+
+  const clampScale = useCallback((value) => {
+    const next = Number(value);
+    if (!Number.isFinite(next)) return 1;
+    return Math.min(5, Math.max(0.2, next));
+  }, []);
+
+  const zoomBy = useCallback(
+    (delta) => {
+      setScale((prev) => clampScale(prev + delta));
+    },
+    [clampScale]
+  );
+
+  const resetZoom = useCallback(() => {
+    setScale(1);
+  }, []);
+
+  const handleTrash = useCallback(async () => {
+    if (!item || !onTrashItem || isTrashing) return;
+    const filename = (item.filepath || '').split(/[\\/]/).pop() || item.id;
+    const confirmed = window.confirm(`确定要将此文件移到回收站吗？\n\n${filename}`);
+    if (!confirmed) return;
+    setIsTrashing(true);
+    try {
+      await onTrashItem(item.id);
+    } finally {
+      setIsTrashing(false);
+    }
+  }, [item, onTrashItem, isTrashing]);
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     setShowInfo(false);
     setIsCurrentImageLoaded(false);
+    setScale(1);
+    setIsTrashing(false);
   }, [item?.id]);
 
   useEffect(() => {
@@ -84,6 +126,18 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev 
         onNext();
       } else if (e.key === 'ArrowLeft') {
         onPrev();
+      } else if ((e.key === '+' || e.key === '=') && item?.media_type === 'image') {
+        e.preventDefault();
+        zoomBy(0.15);
+      } else if ((e.key === '-' || e.key === '_') && item?.media_type === 'image') {
+        e.preventDefault();
+        zoomBy(-0.15);
+      } else if (e.key === '0' && item?.media_type === 'image') {
+        e.preventDefault();
+        resetZoom();
+      } else if (e.key === 'Delete') {
+        e.preventDefault();
+        handleTrash();
       } else if (e.key === ' ' && videoRef.current) {
         e.preventDefault();
         if (videoRef.current.paused) {
@@ -97,11 +151,25 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onClose, onNext, onPrev]);
+  }, [onClose, onNext, onPrev, item, zoomBy, resetZoom, handleTrash]);
 
   return (
-    <div className="lightbox-backdrop" onClick={onClose}>
-      <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="lightbox-backdrop"
+      onClick={onClose}
+      onWheelCapture={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      <div
+        className="lightbox-content"
+        onClick={(e) => e.stopPropagation()}
+        onWheelCapture={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
         <button className="close-btn" onClick={onClose}>×</button>
         <button
           className="info-btn"
@@ -130,12 +198,18 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev 
         )}
 
         {item.media_type === 'image' ? (
-          <img 
-            src={`/api/media/image/${item.id}`} 
+          <img
+            src={`/api/media/image/${item.id}`}
             alt={item.filepath}
             decoding="auto"
             loading="eager"
             fetchPriority="high"
+            style={{ transform: `scale(${scale})` }}
+            onWheel={(e) => {
+              e.preventDefault();
+              zoomBy(e.deltaY < 0 ? 0.1 : -0.1);
+            }}
+            onDoubleClick={resetZoom}
             onLoad={() => setIsCurrentImageLoaded(true)}
             onError={(e) => {
               console.error('大图加载失败:', item.id);

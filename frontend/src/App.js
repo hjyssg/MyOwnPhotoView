@@ -140,6 +140,59 @@ function AppContent() {
 
   const closeLightbox = () => setSelectedItem(null);
 
+  const handleTrashItem = useCallback(
+    async (itemId) => {
+      if (!itemId) return false;
+      try {
+        await axios.post(`/api/media/${itemId}/trash`);
+      } catch (error) {
+        const message =
+          error?.response?.data?.detail ||
+          error?.message ||
+          'Move to recycle bin failed.';
+        showToast(message, 'error');
+        return false;
+      }
+
+      const removedItem = lightboxItems.find((it) => it.id === itemId) || media.find((it) => it.id === itemId);
+      const filename =
+        (removedItem?.filepath || '').split(/[\\/]/).pop() ||
+        removedItem?.filepath ||
+        'file';
+
+      setMedia((prev) => prev.filter((m) => m.id !== itemId));
+      if (activeFilter) {
+        setActiveFilter((prev) => {
+          if (!prev) return prev;
+          const nextItems = prev.items.filter((m) => m.id !== itemId);
+          return { ...prev, items: nextItems };
+        });
+      }
+
+      const idx = lightboxItems.findIndex((m) => m.id === itemId);
+      if (idx < 0) {
+        showToast(`Moved to recycle bin: ${filename}`);
+        return true;
+      }
+
+      const nextItems = lightboxItems.filter((m) => m.id !== itemId);
+      if (!nextItems.length) {
+        setLightboxItems([]);
+        setSelectedItem(null);
+        setCurrentIndex(0);
+      } else {
+        const nextIndex = idx >= nextItems.length ? 0 : idx;
+        setLightboxItems(nextItems);
+        setCurrentIndex(nextIndex);
+        setSelectedItem(nextItems[nextIndex]);
+      }
+
+      showToast(`Moved to recycle bin: ${filename}`);
+      return true;
+    },
+    [activeFilter, lightboxItems, media, showToast]
+  );
+
   const showNext = useCallback(() => {
     if (!lightboxItems.length) return;
     const nextIndex = (currentIndex + 1) % lightboxItems.length;
@@ -329,6 +382,7 @@ function AppContent() {
           onClose={closeLightbox}
           onNext={showNext}
           onPrev={showPrev}
+          onTrashItem={handleTrashItem}
         />
       )}
 
