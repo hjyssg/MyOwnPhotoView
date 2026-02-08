@@ -9,6 +9,7 @@ import {
   withBooleanFlagParam,
   withParam,
 } from '../utils/urlState';
+import { getThumbnailUrl } from '../utils/urlUtil';
 
 const MIN_COUNT_OPTIONS = [10, 50, 100, 300, 500];
 const MIN_COUNT_DEFAULT = 300;
@@ -112,16 +113,11 @@ function BusyDaysPage() {
               </div>
 
               <div className="busy-day-thumbs" aria-label="当天预览">
-                {(row.preview_items || []).slice(0, 5).map((preview) => {
-                  const src = preview.thumbnail_path
-                    ? `/${preview.thumbnail_path}`
-                    : `/api/media/image/${preview.id}`;
-                  return (
-                    <div key={preview.id} className="busy-day-thumb">
-                      <img src={src} alt="" loading="lazy" />
-                    </div>
-                  );
-                })}
+              {(row.preview_items || []).slice(0, 5).map((preview) => (
+                <div key={preview.id} className="busy-day-thumb">
+                  <img src={getThumbnailUrl(preview)} alt="" loading="lazy" />
+                </div>
+              ))}
               </div>
             </Link>
           ))}

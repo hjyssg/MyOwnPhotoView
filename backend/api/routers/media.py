@@ -2,12 +2,14 @@ import datetime
 import mimetypes
 import os
 import re
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from backend.core.config import THUMBNAIL_DIR
 from backend.core.dependencies import get_db
 from backend.services.media_service import (
     get_active_media_dicts,
@@ -16,6 +18,8 @@ from backend.services.media_service import (
 )
 
 router = APIRouter()
+
+THUMBNAIL_DIR_PATH = Path(THUMBNAIL_DIR)
 
 
 def _load_media_snapshot(db: Session, item_id: str):
@@ -88,6 +92,9 @@ def get_media_by_album(name: str, db: Session = Depends(get_db)):
 
 @router.get('/api/media/image/{item_id}')
 async def get_image(item_id: str, request: Request, db: Session = Depends(get_db)):
+    """
+        获得原图
+    """
     snapshot = _load_media_snapshot(db, item_id)
     if not snapshot:
         raise HTTPException(status_code=404, detail='Media item not found')
@@ -156,3 +163,97 @@ async def stream_video(item_id: str, request: Request, db: Session = Depends(get
         )
 
     return StreamingResponse(open(video_path, 'rb'), media_type=mime_type)
+
+
+@router.get('/api/thumbnail')
+async def get_thumbnail(
+    filepath: str,
+    thumbnail_path: str | None = None,
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    """Get thumbnail for a media file. Generates on-the-fly if not exists.
+    
+    Args:
+        filepath: Path to the media file (required for generation)
+        thumbnail_path: Existing thumbnail path for fast lookup (optional)
+    """
+    from backend.database import MediaItem
+    from backend.scanner import (
+        _hash_file_sampled,
+        _process_image_file,
+        create_video_thumbnail,
+        SUPPORTED_IMAGE_EXTENSIONS,
+        SUPPORTED_VIDEO_EXTENSIONS,
+    )
+
+    # Fast path: if thumbnail_path is provided, try to find it directly
+    if thumbnail_path:
+        # thumbnail_path is like "thumbnails/abc123.jpg"
+        direct_path = THUMBNAIL_DIR_PATH / Path(thumbnail_path).name
+        if direct_path.exists():
+            # Return thumbnail with caching
+            file_size = os.path.getsize(direct_path)
+            file_mtime = int(os.path.getmtime(direct_path))
+            etag = f'W/"{file_mtime}-{file_size}"'
+
+            if request and request.headers.get('if-none-match') == etag:
+                return Response(status_code=304, headers={'ETag': etag, 'Cache-Control': 'public, max-age=86400'})
+
+            return FileResponse(
+                path=direct_path,
+                media_type='image/jpeg',
+                headers={'ETag': etag, 'Cache-Control': 'public, max-age=86400'}
+            )
+        # If thumbnail doesn't exist, fall through to generation flow
+
+    # Find media item by filepath
+    item = db.query(MediaItem).filter(MediaItem.filepath == filepath, MediaItem.is_deleted == 0).first()
+    if not item:
+        raise HTTPException(status_code=404, detail='Media item not found')
+
+    file_path = Path(filepath)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail='File not found')
+
+    # Determine thumbnail path based on content hash
+    try:
+        content_hash = _hash_file_sampled(file_path)
+    except Exception:
+        content_hash = item.content_hash or 'fallback'
+
+    thumbnail_filename = f'{content_hash}.jpg'
+    thumbnail_full_path = THUMBNAIL_DIR_PATH / thumbnail_filename
+
+    # Generate thumbnail if not exists
+    if not thumbnail_full_path.exists():
+        THUMBNAIL_DIR_PATH.mkdir(parents=True, exist_ok=True)
+        ext = file_path.suffix.lower()
+
+        try:
+            if ext in SUPPORTED_IMAGE_EXTENSIONS:
+                _process_image_file(file_path, thumbnail_full_path)
+            elif ext in SUPPORTED_VIDEO_EXTENSIONS:
+                create_video_thumbnail(file_path, thumbnail_full_path)
+            else:
+                raise HTTPException(status_code=400, detail='Unsupported file type')
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f'Failed to generate thumbnail: {e}')
+
+    # Check again after generation attempt
+    if not thumbnail_full_path.exists():
+        raise HTTPException(status_code=500, detail='Thumbnail generation failed')
+
+    # Return thumbnail with caching
+    file_size = os.path.getsize(thumbnail_full_path)
+    file_mtime = int(os.path.getmtime(thumbnail_full_path))
+    etag = f'W/"{file_mtime}-{file_size}"'
+
+    if request and request.headers.get('if-none-match') == etag:
+        return Response(status_code=304, headers={'ETag': etag, 'Cache-Control': 'public, max-age=86400'})
+
+    return FileResponse(
+        path=thumbnail_full_path,
+        media_type='image/jpeg',
+        headers={'ETag': etag, 'Cache-Control': 'public, max-age=86400'}
+    )

@@ -1,12 +1,13 @@
 import React from 'react';
 import LazyImage from './LazyImage';
+import { getThumbnailUrl } from '../utils/urlUtil';
 
 function MediaCard({ item, onClick, formatDuration, imageStyle }) {
   return (
     <div className="gallery-item" onClick={onClick}>
       <div className="media-visual">
         <LazyImage
-          src={item.thumbnail_path ? `/${item.thumbnail_path}` : `/api/media/image/${item.id}`}
+          src={getThumbnailUrl(item)}
           alt=""
           style={imageStyle}
         />

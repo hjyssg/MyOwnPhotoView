@@ -1,5 +1,6 @@
 import React from 'react';
 import LazyImage from '../components/LazyImage';
+import { getThumbnailUrl } from '../utils/urlUtil';
 
 function AlbumsPage({ smartAlbums }) {
   const albums = Object.entries(smartAlbums).filter(([name]) => name !== 'all');
@@ -19,7 +20,7 @@ function AlbumsPage({ smartAlbums }) {
             <div className="album-card">
               {items.length > 0 ? (
                 <LazyImage
-                  src={items[0].thumbnail_path ? `/${items[0].thumbnail_path}` : `/api/media/image/${items[0].id}`}
+                  src={getThumbnailUrl(items[0])}
                   alt=""
                   className="album-cover"
                 />

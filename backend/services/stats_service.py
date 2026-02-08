@@ -63,6 +63,7 @@ def get_busy_days_payload(
         MediaItem.created_at,
         MediaItem.location_name,
         MediaItem.id,
+        MediaItem.filepath,
         MediaItem.thumbnail_path,
         MediaItem.media_type,
     ).filter(func.date(MediaItem.created_at).in_(busy_date_set), MediaItem.is_deleted == 0)
@@ -88,6 +89,7 @@ def get_busy_days_payload(
         preview_bucket.append(
             {
                 'id': row.id,
+                'filepath': row.filepath,
                 'thumbnail_path': row.thumbnail_path,
                 'media_type': row.media_type,
             }
