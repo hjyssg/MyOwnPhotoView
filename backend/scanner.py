@@ -432,6 +432,12 @@ def scan_directory(
 
         db_item = existing_items.get(abs_filepath)
 
+        # Check if thumbnail exists (handle case where thumbnail was deleted but DB record remains)
+        thumbnail_exists = True
+        if db_item and db_item.thumbnail_path:
+            thumb_full_path = THUMBNAIL_DIR / Path(db_item.thumbnail_path).name
+            thumbnail_exists = thumb_full_path.exists()
+
         unchanged = (
             (not force_rescan)
             and db_item
@@ -439,6 +445,7 @@ def scan_directory(
             and db_item.mtime == file_mtime
             and db_item.size == file_size
             and bool(db_item.content_hash)
+            and thumbnail_exists
         )
         if unchanged:
             skipped_count += 1
