@@ -9,23 +9,48 @@ function LazyImage({ src, alt, className, style }) {
   const [shouldLoad, setShouldLoad] = useState(false);
   const [failed, setFailed] = useState(false);
   const imgRef = useRef(null);
+  const loadTimerRef = useRef(null);
+
+  useEffect(() => {
+    setShouldLoad(false);
+    setFailed(false);
+  }, [src]);
 
   useEffect(() => {
     const node = imgRef.current;
     if (!node) return undefined;
 
+    const clearLoadTimer = () => {
+      if (!loadTimerRef.current) return;
+      clearTimeout(loadTimerRef.current);
+      loadTimerRef.current = null;
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setShouldLoad(true);
-          observer.disconnect();
+        const entry = entries[0];
+        if (!entry) return;
+
+        if (entry.isIntersecting) {
+          if (!loadTimerRef.current) {
+            loadTimerRef.current = setTimeout(() => {
+              setShouldLoad(true);
+              clearLoadTimer();
+              observer.disconnect();
+            }, 120);
+          }
+        } else {
+          clearLoadTimer();
         }
       },
-      { root: null, rootMargin: '200px 0px', threshold: 0.01 }
+      { root: null, rootMargin: '80px 0px', threshold: 0.15 }
     );
 
     observer.observe(node);
-    return () => observer.disconnect();
+    return () => {
+      clearLoadTimer();
+      observer.disconnect();
+    };
   }, []);
 
   return (
