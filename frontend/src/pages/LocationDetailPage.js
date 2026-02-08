@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import DateGroupedMediaSections from '../components/DateGroupedMediaSections';
+import TopControlBar from '../components/TopControlBar';
 
 function LocationDetailPage({ openLightboxWithList, formatDuration, allMedia }) {
   const { locationKey } = useParams();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [groupBy, setGroupBy] = useState('day');
 
   useEffect(() => {
     let canceled = false;
@@ -35,24 +38,37 @@ function LocationDetailPage({ openLightboxWithList, formatDuration, allMedia }) 
   }, [locationKey, allMedia]);
 
   const title = items[0]?.location_city || decodeURIComponent(locationKey || '未知地点');
+  const filteredItems = useMemo(() => {
+    if (activeFilter === 'all') return items;
+    if (activeFilter === 'video') return items.filter((m) => m.media_type === 'video');
+    return items.filter((m) => m.source_type === activeFilter);
+  }, [items, activeFilter]);
 
   return (
     <div className="gallery-container">
       <h2 className="location-page-title">{title}</h2>
 
+      <TopControlBar
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+      />
+
       {loading ? (
         <div className="loading-indicator">
           <span className="loading-spinner" aria-label="Loading" />
         </div>
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="empty-state">该地点暂无媒体</div>
       ) : (
         <DateGroupedMediaSections
-          items={items}
+          items={filteredItems}
           openLightboxWithList={openLightboxWithList}
           formatDuration={formatDuration}
           showLimit={6}
           showDateLink
+          groupBy={groupBy}
           collapsible
         />
       )}

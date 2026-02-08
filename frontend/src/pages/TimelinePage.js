@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import DateGroupedMediaSections from '../components/DateGroupedMediaSections';
+import TopControlBar from '../components/TopControlBar';
 
 function TimelinePage({
   displayedMedia,
@@ -18,38 +19,15 @@ function TimelinePage({
 
   return (
     <div className="gallery-container">
-      <div className="timeline-toolbar">
-        <div className="timeline-filters">
-          {['all', 'camera', 'screenshot', 'video'].map((filterName) => (
-            <button
-              key={filterName}
-              className={(activeFilter?.name || 'all') === filterName ? 'active' : ''}
-              onClick={() => {
-                if (filterName === 'all') setActiveFilter(null);
-                else setActiveFilter({ name: filterName, items: smartAlbums[filterName] });
-              }}
-            >
-              {filterName.toUpperCase()}
-            </button>
-          ))}
-        </div>
-
-        <div className="timeline-filters timeline-aggregate-filters">
-          {[
-            { key: 'day', label: '按日' },
-            { key: 'month', label: '按月' },
-            { key: 'year', label: '按年' },
-          ].map((mode) => (
-            <button
-              key={mode.key}
-              className={groupBy === mode.key ? 'active' : ''}
-              onClick={() => setGroupBy(mode.key)}
-            >
-              {mode.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <TopControlBar
+        activeFilter={activeFilter?.name || 'all'}
+        onFilterChange={(filterName) => {
+          if (filterName === 'all') setActiveFilter(null);
+          else setActiveFilter({ name: filterName, items: smartAlbums[filterName] });
+        }}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+      />
 
       {displayedMedia.length === 0 ? (
         <div className="empty-state">No media found</div>
