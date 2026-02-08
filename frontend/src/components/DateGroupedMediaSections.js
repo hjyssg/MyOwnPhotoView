@@ -32,6 +32,23 @@ function getGroupSortTime(key, groupBy) {
   return new Date(key).getTime();
 }
 
+function sampleItemsByRange(items, sampleCount) {
+  if (!Array.isArray(items) || sampleCount <= 0) return [];
+  if (items.length <= sampleCount) return items;
+
+  const total = items.length;
+  const sampled = [];
+
+  for (let i = 0; i < sampleCount; i += 1) {
+    const start = Math.floor((i * total) / sampleCount);
+    const end = Math.floor(((i + 1) * total) / sampleCount);
+    const pickIndex = Math.floor((start + Math.max(start, end - 1)) / 2);
+    sampled.push(items[pickIndex]);
+  }
+
+  return sampled;
+}
+
 function DateGroupedMediaSections({
   items,
   openLightboxWithList,
@@ -59,7 +76,7 @@ function DateGroupedMediaSections({
 
   return orderedDates.map((dateKey) => {
     const dateItems = groups[dateKey];
-    const visibleItems = collapsible ? dateItems.slice(0, showLimit) : dateItems;
+    const visibleItems = collapsible ? sampleItemsByRange(dateItems, showLimit) : dateItems;
     const locationEntries = showLocationNames
       ? Array.from(
           new Map(
