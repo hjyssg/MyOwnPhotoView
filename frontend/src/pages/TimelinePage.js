@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import DateGroupedMediaSections from '../components/DateGroupedMediaSections';
 import TopControlBar from '../components/TopControlBar';
 
 function TimelinePage({
+  sourceMedia,
   displayedMedia,
   activeFilter,
   setActiveFilter,
@@ -14,8 +16,18 @@ function TimelinePage({
   loaderRef,
   hasMore,
 }) {
-  const [groupBy, setGroupBy] = useState('day');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const groupByParam = searchParams.get('groupBy');
+  const groupBy = groupByParam === 'month' || groupByParam === 'year' || groupByParam === 'day' ? groupByParam : 'day';
+  const timelineItems = groupBy === 'day' ? displayedMedia : sourceMedia;
   const showInfiniteLoader = groupBy === 'day' && hasMore;
+
+  const handleGroupByChange = (nextGroupBy) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextGroupBy === 'day') next.delete('groupBy');
+    else next.set('groupBy', nextGroupBy);
+    setSearchParams(next);
+  };
 
   return (
     <div className="gallery-container">
@@ -26,14 +38,14 @@ function TimelinePage({
           else setActiveFilter({ name: filterName, items: smartAlbums[filterName] });
         }}
         groupBy={groupBy}
-        onGroupByChange={setGroupBy}
+        onGroupByChange={handleGroupByChange}
       />
 
-      {displayedMedia.length === 0 ? (
+      {timelineItems.length === 0 ? (
         <div className="empty-state">No media found</div>
       ) : (
         <DateGroupedMediaSections
-          items={displayedMedia}
+          items={timelineItems}
           openLightboxWithList={openLightboxWithList}
           formatDuration={formatDuration}
           expandedDates={expandedDates}

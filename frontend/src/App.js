@@ -28,7 +28,7 @@ function AppContent() {
   const toastTimerRef = useRef(null);
   const hasShownSetupToastRef = useRef(false);
   const pageRef = useRef(1);
-  const itemsPerPage = 50;
+  const itemsPerPage = 3000;
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -221,6 +221,7 @@ function AppContent() {
           path="/"
           element={
             <TimelinePage
+              sourceMedia={currentSourceList}
               displayedMedia={displayedMedia}
               activeFilter={activeFilter}
               setActiveFilter={setActiveFilter}
