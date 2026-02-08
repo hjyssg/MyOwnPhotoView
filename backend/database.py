@@ -28,6 +28,8 @@ class MediaItem(Base):
     source_type = Column(String, default='unknown') # 'camera', 'web', 'screenshot', 'video'
     location_name = Column(String, nullable=True)
     content_hash = Column(String, nullable=True, index=True)
+    is_deleted = Column(Integer, nullable=False, default=0, index=True)
+    deleted_at = Column(DateTime, nullable=True)
     mtime = Column(Float, nullable=False, default=0)
     size = Column(BigInteger, nullable=False, default=0)
 
@@ -53,4 +55,12 @@ def _apply_lightweight_migrations():
         if "content_hash" not in columns:
             connection.execute(
                 text("ALTER TABLE media_items ADD COLUMN content_hash TEXT")
+            )
+        if "is_deleted" not in columns:
+            connection.execute(
+                text("ALTER TABLE media_items ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+            )
+        if "deleted_at" not in columns:
+            connection.execute(
+                text("ALTER TABLE media_items ADD COLUMN deleted_at DATETIME")
             )

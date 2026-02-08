@@ -156,7 +156,8 @@ def _get_folder_scan_stats(db: Session, folder: str) -> tuple[bool, int]:
             or_(
                 MediaItem.filepath == abs_folder,
                 MediaItem.filepath.like(f'{prefix}%'),
-            )
+            ),
+            MediaItem.is_deleted == 0,
         )
         .scalar()
         or 0
@@ -321,15 +322,117 @@ def _sample_items_by_range(items: list[dict], sample_count: int) -> list[dict]:
     return sampled
 
 
+def _is_under_any_scan_folder(filepath: str, folders: list[str]) -> bool:
+    abs_path = os.path.abspath(filepath)
+    for folder in folders:
+        abs_folder = os.path.abspath(folder)
+        try:
+            common = os.path.commonpath([abs_path, abs_folder])
+            if common == abs_folder:
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _soft_delete_outside_scan_folders(db: Session, folders: list[str]) -> int:
+    now = datetime.datetime.utcnow()
+    changed = 0
+    items = db.query(MediaItem).all()
+    for item in items:
+        if _is_under_any_scan_folder(item.filepath, folders):
+            continue
+        if int(item.is_deleted or 0) == 1:
+            continue
+        item.is_deleted = 1
+        item.deleted_at = now
+        changed += 1
+    if changed > 0:
+        db.commit()
+    return changed
+
+
+def _delete_thumbnail_file_by_relpath(relpath: str) -> bool:
+    if not relpath:
+        return False
+    thumb_name = os.path.basename(relpath)
+    thumb_path = os.path.join('backend', 'cache', 'thumbnails', thumb_name)
+    if not os.path.isfile(thumb_path):
+        return False
+    try:
+        os.remove(thumb_path)
+        return True
+    except Exception:
+        return False
+
+
+def _hard_delete_soft_deleted_items(db: Session) -> dict:
+    items = db.query(MediaItem).filter(MediaItem.is_deleted == 1).all()
+    if not items:
+        return {'deleted_media_items': 0, 'deleted_thumbnails': 0}
+
+    thumbnails = {item.thumbnail_path for item in items if item.thumbnail_path}
+    deleted_media_items = len(items)
+    for item in items:
+        db.delete(item)
+    db.commit()
+
+    deleted_thumbnails = 0
+    for relpath in thumbnails:
+        refs = db.query(func.count(MediaItem.id)).filter(MediaItem.thumbnail_path == relpath).scalar() or 0
+        if int(refs) == 0 and _delete_thumbnail_file_by_relpath(relpath):
+            deleted_thumbnails += 1
+
+    return {
+        'deleted_media_items': deleted_media_items,
+        'deleted_thumbnails': deleted_thumbnails,
+    }
+
+
+def _cleanup_unused_thumbnails(db: Session) -> dict:
+    thumbnail_dir = os.path.join('backend', 'cache', 'thumbnails')
+    if not os.path.isdir(thumbnail_dir):
+        return {'deleted_thumbnails': 0, 'kept_thumbnails': 0}
+
+    referenced_rows = db.query(MediaItem.thumbnail_path).filter(MediaItem.thumbnail_path.isnot(None)).all()
+    referenced_names = {os.path.basename(row[0]) for row in referenced_rows if row and row[0]}
+
+    deleted_thumbnails = 0
+    kept_thumbnails = 0
+    for name in os.listdir(thumbnail_dir):
+        file_path = os.path.join(thumbnail_dir, name)
+        if not os.path.isfile(file_path):
+            continue
+        if name in referenced_names:
+            kept_thumbnails += 1
+            continue
+        try:
+            os.remove(file_path)
+            deleted_thumbnails += 1
+        except Exception:
+            kept_thumbnails += 1
+
+    return {
+        'deleted_thumbnails': deleted_thumbnails,
+        'kept_thumbnails': kept_thumbnails,
+    }
+
+
 @app.on_event('startup')
 def on_startup():
     create_db_and_tables()
+
+    folders = _load_scan_folders_config()
+    db = SessionLocal()
+    try:
+        _soft_delete_outside_scan_folders(db, folders)
+    finally:
+        db.close()
 
     settings = _load_app_settings()
     if not settings.get('auto_scan_on_startup'):
         return
 
-    folders = _load_scan_folders_config()
     existing = [p for p in folders if os.path.isdir(p)]
     if not existing:
         return
@@ -398,10 +501,11 @@ def get_scan_folders_endpoint(db: Session = Depends(get_db)):
 
 
 @app.put('/api/scan/folders')
-def save_scan_folders_endpoint(payload: ScanFoldersPayload):
+def save_scan_folders_endpoint(payload: ScanFoldersPayload, db: Session = Depends(get_db)):
     folders = _normalize_folder_paths(payload.folders)
     _save_scan_folders_config(folders)
-    return {'folders': folders}
+    soft_deleted_count = _soft_delete_outside_scan_folders(db, folders)
+    return {'folders': folders, 'soft_deleted_count': int(soft_deleted_count)}
 
 
 @app.get('/api/settings')
@@ -499,9 +603,39 @@ def reset_scan_data_endpoint():
     }
 
 
+@app.post('/api/maintenance/purge-soft-deleted')
+def purge_soft_deleted_endpoint():
+    with scan_lock:
+        if scan_state['is_running']:
+            raise HTTPException(status_code=409, detail='Scan is running, cannot purge now')
+
+    db = SessionLocal()
+    try:
+        result = _hard_delete_soft_deleted_items(db)
+    finally:
+        db.close()
+
+    return {'status': 'ok', **result}
+
+
+@app.post('/api/thumbnails/cleanup-unused')
+def cleanup_unused_thumbnails_endpoint():
+    with scan_lock:
+        if scan_state['is_running']:
+            raise HTTPException(status_code=409, detail='Scan is running, cannot cleanup now')
+
+    db = SessionLocal()
+    try:
+        result = _cleanup_unused_thumbnails(db)
+    finally:
+        db.close()
+
+    return {'status': 'ok', **result}
+
+
 @app.get('/api/media')
 def get_media_items(db: Session = Depends(get_db)):
-    items = db.query(MediaItem).order_by(MediaItem.created_at.desc()).all()
+    items = db.query(MediaItem).filter(MediaItem.is_deleted == 0).order_by(MediaItem.created_at.desc()).all()
     return [media_item_to_dict(item) for item in items]
 
 
@@ -514,7 +648,7 @@ def get_media_by_date(date: str, db: Session = Depends(get_db)):
 
     items = (
         db.query(MediaItem)
-        .filter(func.date(MediaItem.created_at) == date)
+        .filter(func.date(MediaItem.created_at) == date, MediaItem.is_deleted == 0)
         .order_by(MediaItem.created_at.desc())
         .all()
     )
@@ -528,6 +662,7 @@ def get_media_by_album(name: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail='Invalid album name')
 
     query = db.query(MediaItem)
+    query = query.filter(MediaItem.is_deleted == 0)
     if name == 'video':
         query = query.filter(MediaItem.media_type == 'video')
     elif name != 'all':
@@ -541,7 +676,7 @@ def get_media_by_album(name: str, db: Session = Depends(get_db)):
 def get_locations(db: Session = Depends(get_db)):
     items = (
         db.query(MediaItem)
-        .filter(MediaItem.latitude.isnot(None), MediaItem.longitude.isnot(None))
+        .filter(MediaItem.latitude.isnot(None), MediaItem.longitude.isnot(None), MediaItem.is_deleted == 0)
         .order_by(MediaItem.created_at.desc())
         .all()
     )
@@ -591,7 +726,7 @@ def get_media_by_location(key: str, db: Session = Depends(get_db)):
     if not target:
         raise HTTPException(status_code=400, detail='Missing location key')
 
-    items = db.query(MediaItem).order_by(MediaItem.created_at.desc()).all()
+    items = db.query(MediaItem).filter(MediaItem.is_deleted == 0).order_by(MediaItem.created_at.desc()).all()
     filtered = []
     for item in items:
         _, location_key = normalize_location_name(item.location_name)
@@ -615,7 +750,7 @@ def get_busy_days(
     grouped_query = db.query(
         func.date(MediaItem.created_at).label('date_key'),
         func.count(MediaItem.id).label('count'),
-    )
+    ).filter(MediaItem.is_deleted == 0)
     if only_camera:
         grouped_query = grouped_query.filter(MediaItem.source_type == 'camera')
 
@@ -664,7 +799,7 @@ def get_busy_days(
         MediaItem.id,
         MediaItem.thumbnail_path,
         MediaItem.media_type,
-    ).filter(func.date(MediaItem.created_at).in_(busy_date_set))
+    ).filter(func.date(MediaItem.created_at).in_(busy_date_set), MediaItem.is_deleted == 0)
     if only_camera:
         media_query = media_query.filter(MediaItem.source_type == 'camera')
 
@@ -756,6 +891,8 @@ async def get_image(item_id: str, request: Request):
     db = SessionLocal()
     try:
         item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
+        if item and int(item.is_deleted or 0) == 1:
+            item = None
         if not item:
             raise HTTPException(status_code=404, detail='Media item not found')
         file_path = item.filepath
@@ -797,6 +934,8 @@ async def stream_video(item_id: str, request: Request):
     db = SessionLocal()
     try:
         item = db.query(MediaItem).filter(MediaItem.id == item_id).first()
+        if item and int(item.is_deleted or 0) == 1:
+            item = None
         if not item or item.media_type != 'video':
             raise HTTPException(status_code=404, detail='Video not found')
         video_path = item.filepath

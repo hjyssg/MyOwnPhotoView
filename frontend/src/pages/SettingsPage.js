@@ -7,6 +7,8 @@ function SettingsPage({ onScanCompleted, showToast }) {
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isSyncingConfig, setIsSyncingConfig] = useState(false);
   const [isSyncingSettings, setIsSyncingSettings] = useState(false);
+  const [isPurgingSoftDeleted, setIsPurgingSoftDeleted] = useState(false);
+  const [isCleaningUnusedThumbnails, setIsCleaningUnusedThumbnails] = useState(false);
   const [appSettings, setAppSettings] = useState({
     auto_scan_on_startup: false,
     scan_mode: 'incremental',
@@ -88,12 +90,18 @@ function SettingsPage({ onScanCompleted, showToast }) {
     try {
       const res = await axios.put('/api/scan/folders', { folders: nextFolders });
       const savedFolders = Array.isArray(res.data?.folders) ? res.data.folders : [];
+      const softDeletedCount = Number(res.data?.soft_deleted_count || 0);
       const details = await axios.get('/api/scan/folders');
       const items = Array.isArray(details.data?.items)
         ? details.data.items
         : savedFolders.map((path) => ({ path, has_scanned: false, scanned_count: 0 }));
       setFolderItems(items);
-      showToast?.(toastMessage, 'success');
+      if (softDeletedCount > 0) {
+        showToast?.(`${toastMessage}（已软删除 ${softDeletedCount} 条）`, 'success');
+      } else {
+        showToast?.(toastMessage, 'success');
+      }
+      onScanCompleted?.();
     } catch (error) {
       console.error('Failed to save scan folders', error);
       showToast?.('Update scan folders failed', 'error');
@@ -180,6 +188,44 @@ function SettingsPage({ onScanCompleted, showToast }) {
     } catch (error) {
       console.error('Scan all failed', error);
       showToast?.('Scan all failed', 'error');
+    }
+  };
+
+  const purgeSoftDeletedItems = async () => {
+    const confirmed = window.confirm('确定要彻底删除已软删除的数据吗？该操作不可恢复。');
+    if (!confirmed) return;
+
+    setIsPurgingSoftDeleted(true);
+    try {
+      const res = await axios.post('/api/maintenance/purge-soft-deleted');
+      const deletedItems = Number(res.data?.deleted_media_items || 0);
+      const deletedThumbs = Number(res.data?.deleted_thumbnails || 0);
+      showToast?.(`Purge done: media ${deletedItems}, thumbnails ${deletedThumbs}`, 'success');
+      await loadFolders();
+      onScanCompleted?.();
+    } catch (error) {
+      console.error('Purge soft-deleted items failed', error);
+      showToast?.('Purge soft-deleted items failed', 'error');
+    } finally {
+      setIsPurgingSoftDeleted(false);
+    }
+  };
+
+  const cleanupUnusedThumbnails = async () => {
+    const confirmed = window.confirm('确定要删除未使用的缩略图吗？');
+    if (!confirmed) return;
+
+    setIsCleaningUnusedThumbnails(true);
+    try {
+      const res = await axios.post('/api/thumbnails/cleanup-unused');
+      const deleted = Number(res.data?.deleted_thumbnails || 0);
+      const kept = Number(res.data?.kept_thumbnails || 0);
+      showToast?.(`Cleanup done: deleted ${deleted}, kept ${kept}`, 'success');
+    } catch (error) {
+      console.error('Cleanup unused thumbnails failed', error);
+      showToast?.('Cleanup unused thumbnails failed', 'error');
+    } finally {
+      setIsCleaningUnusedThumbnails(false);
     }
   };
 
@@ -358,6 +404,32 @@ function SettingsPage({ onScanCompleted, showToast }) {
             </button>
           </div>
         )}
+
+        <div className="scan-status" style={{ marginTop: 16, marginBottom: 8, fontWeight: 700, color: 'var(--text-primary)' }}>
+          Maintenance
+        </div>
+        <div className="scan-add-row" style={{ marginTop: 0, marginBottom: 0 }}>
+          <button
+            onClick={cleanupUnusedThumbnails}
+            disabled={
+              scanStatus?.is_running ||
+              isCleaningUnusedThumbnails ||
+              isPurgingSoftDeleted
+            }
+          >
+            {isCleaningUnusedThumbnails ? 'Cleaning...' : 'Delete unused thumbnails'}
+          </button>
+          <button
+            onClick={purgeSoftDeletedItems}
+            disabled={
+              scanStatus?.is_running ||
+              isPurgingSoftDeleted ||
+              isCleaningUnusedThumbnails
+            }
+          >
+            {isPurgingSoftDeleted ? 'Purging...' : 'Permanently delete soft-deleted items'}
+          </button>
+        </div>
       </div>
     </div>
   );

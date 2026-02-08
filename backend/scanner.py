@@ -390,6 +390,7 @@ def scan_directory(
         unchanged = (
             (not force_rescan)
             and db_item
+            and int(db_item.is_deleted or 0) == 0
             and db_item.mtime == file_mtime
             and db_item.size == file_size
             and bool(db_item.content_hash)
@@ -437,6 +438,8 @@ def scan_directory(
                 db_item.source_type = image_info['source_type']
                 db_item.location_name = image_info['location_name']
                 db_item.content_hash = content_hash
+                db_item.is_deleted = 0
+                db_item.deleted_at = None
                 db_item.mtime = file_mtime
                 db_item.size = file_size
                 updated_count += 1
@@ -453,6 +456,8 @@ def scan_directory(
                     source_type=image_info['source_type'],
                     location_name=image_info['location_name'],
                     content_hash=content_hash,
+                    is_deleted=0,
+                    deleted_at=None,
                     mtime=file_mtime,
                     size=file_size,
                 )
@@ -475,6 +480,8 @@ def scan_directory(
                 db_item.latitude = None
                 db_item.longitude = None
                 db_item.content_hash = content_hash
+                db_item.is_deleted = 0
+                db_item.deleted_at = None
                 db_item.mtime = file_mtime
                 db_item.size = file_size
                 updated_count += 1
@@ -489,6 +496,8 @@ def scan_directory(
                     thumbnail_path=f'thumbnails/{thumbnail_filename}',
                     source_type='video',
                     content_hash=content_hash,
+                    is_deleted=0,
+                    deleted_at=None,
                     mtime=file_mtime,
                     size=file_size,
                 )
@@ -513,8 +522,8 @@ def scan_directory(
     deleted_count = 0
     for existing_path, item in existing_items.items():
         if existing_path not in seen_paths:
-            _remove_thumbnail_file(item, db)
-            db.delete(item)
+            item.is_deleted = 1
+            item.deleted_at = datetime.datetime.utcnow()
             deleted_count += 1
             dirty_ops += 1
 
