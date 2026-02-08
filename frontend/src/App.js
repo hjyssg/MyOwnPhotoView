@@ -11,6 +11,7 @@ import DateDetailPage from './pages/DateDetailPage';
 import AlbumDetailPage from './pages/AlbumDetailPage';
 import LocationDetailPage from './pages/LocationDetailPage';
 import ScanPage from './pages/ScanPage';
+import BusyDaysPage from './pages/BusyDaysPage';
 
 function AppContent() {
   const [media, setMedia] = useState([]);
@@ -174,6 +175,10 @@ function AppContent() {
         <Route
           path="/albums"
           element={<AlbumsPage smartAlbums={smartAlbums} formatDuration={formatDuration} />}
+        />
+        <Route
+          path="/busy-days"
+          element={<BusyDaysPage />}
         />
         <Route
           path="/date/day/:dateKey"
