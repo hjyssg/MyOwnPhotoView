@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import './App.css';
 import Lightbox from './Lightbox';
 import MapView from './MapView';
@@ -14,6 +14,7 @@ import ScanPage from './pages/ScanPage';
 import BusyDaysPage from './pages/BusyDaysPage';
 
 function AppContent() {
+  const location = useLocation();
   const [media, setMedia] = useState([]);
   const [displayedMedia, setDisplayedMedia] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -138,6 +139,40 @@ function AppContent() {
 
   const currentSourceList = activeFilter ? activeFilter.items : media;
   const hasMore = displayedMedia.length < currentSourceList.length;
+
+  useEffect(() => {
+    const appName = 'Local Smart Gallery';
+    const { pathname } = location;
+
+    const decodePathPart = (value) => {
+      try {
+        return decodeURIComponent(value || '');
+      } catch (_) {
+        return value || '';
+      }
+    };
+
+    const pathParts = pathname.split('/').filter(Boolean);
+    let pageTitle = 'Timeline';
+
+    if (pathname === '/') pageTitle = 'Timeline';
+    else if (pathname === '/map') pageTitle = 'Map';
+    else if (pathname === '/albums') pageTitle = 'Albums';
+    else if (pathname === '/busy-days') pageTitle = 'Busy Days';
+    else if (pathname === '/scan') pageTitle = 'Scan';
+    else if (pathParts[0] === 'album' && pathParts[1]) {
+      pageTitle = `Album · ${decodePathPart(pathParts[1])}`;
+    } else if (pathParts[0] === 'location' && pathParts[1]) {
+      pageTitle = `Location · ${decodePathPart(pathParts[1])}`;
+    } else if (pathParts[0] === 'date' && pathParts[1]) {
+      if (pathParts[1] === 'day' && pathParts[2]) pageTitle = `Date · ${decodePathPart(pathParts[2])}`;
+      else if (pathParts[1] === 'month' && pathParts[2]) pageTitle = `Month · ${decodePathPart(pathParts[2])}`;
+      else if (pathParts[1] === 'year' && pathParts[2]) pageTitle = `Year · ${decodePathPart(pathParts[2])}`;
+      else pageTitle = `Date · ${decodePathPart(pathParts[1])}`;
+    }
+
+    document.title = `${pageTitle} | ${appName}`;
+  }, [location]);
 
   return (
     <div className="App">

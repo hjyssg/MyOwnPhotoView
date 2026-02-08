@@ -183,6 +183,22 @@ def _percentile(sorted_values: list[int], p: float) -> float:
     return low_v + (high_v - low_v) * (rank - low)
 
 
+def _sample_items_by_range(items: list[dict], sample_count: int) -> list[dict]:
+    if sample_count <= 0 or not items:
+        return []
+    if len(items) <= sample_count:
+        return items
+
+    total = len(items)
+    sampled = []
+    for i in range(sample_count):
+        start = (i * total) // sample_count
+        end = ((i + 1) * total) // sample_count
+        pick_index = (start + max(start, end - 1)) // 2
+        sampled.append(items[pick_index])
+    return sampled
+
+
 @app.on_event('startup')
 def on_startup():
     create_db_and_tables()
@@ -427,28 +443,43 @@ def get_busy_days(
         }
 
     busy_date_set = {row['date_key'] for row in busy_rows}
-    location_query = db.query(MediaItem.created_at, MediaItem.location_name).filter(
-        func.date(MediaItem.created_at).in_(busy_date_set)
-    )
+    media_query = db.query(
+        MediaItem.created_at,
+        MediaItem.location_name,
+        MediaItem.id,
+        MediaItem.thumbnail_path,
+        MediaItem.media_type,
+    ).filter(func.date(MediaItem.created_at).in_(busy_date_set))
     if only_camera:
-        location_query = location_query.filter(MediaItem.source_type == 'camera')
+        media_query = media_query.filter(MediaItem.source_type == 'camera')
 
-    location_rows = location_query.all()
+    media_rows = media_query.order_by(MediaItem.created_at.desc()).all()
     location_counter_by_date = {}
-    for row in location_rows:
+    preview_candidates_by_date = {}
+    for row in media_rows:
         date_key = row.created_at.date().isoformat()
         city, key = normalize_location_name(row.location_name)
         # 与 Timeline 行为保持一致：只用可归一化出的地点参与“主地点”评选。
         # 无定位信息的素材不应把当天主地点“挤掉”。
         if not city or not key:
-            continue
-        if date_key not in location_counter_by_date:
-            location_counter_by_date[date_key] = {}
+            pass
+        else:
+            if date_key not in location_counter_by_date:
+                location_counter_by_date[date_key] = {}
 
-        bucket = location_counter_by_date[date_key]
-        if key not in bucket:
-            bucket[key] = {'location_key': key, 'location_city': city, 'count': 0}
-        bucket[key]['count'] += 1
+            bucket = location_counter_by_date[date_key]
+            if key not in bucket:
+                bucket[key] = {'location_key': key, 'location_city': city, 'count': 0}
+            bucket[key]['count'] += 1
+
+        preview_bucket = preview_candidates_by_date.setdefault(date_key, [])
+        preview_bucket.append(
+            {
+                'id': row.id,
+                'thumbnail_path': row.thumbnail_path,
+                'media_type': row.media_type,
+            }
+        )
 
     items = []
     for row in busy_rows:
@@ -475,6 +506,10 @@ def get_busy_days(
                 'top_location_key': top_location['location_key'],
                 'top_location_city': top_location['location_city'],
                 'top_location_count': top_location['count'],
+                'preview_items': _sample_items_by_range(
+                    preview_candidates_by_date.get(date_key, []),
+                    5,
+                ),
                 'score': round(score, 3),
             }
         )

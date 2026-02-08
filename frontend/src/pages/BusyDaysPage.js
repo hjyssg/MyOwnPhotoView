@@ -87,9 +87,24 @@ function BusyDaysPage() {
         <div className="busy-days-list">
           {items.map((row) => (
             <Link key={row.date_key} to={`/date/day/${row.date_key}`} className="busy-day-row">
-              <div className="busy-day-date">{row.date_key}</div>
-              <div className="busy-day-city">{row.top_location_city || '—'}</div>
-              <div className="busy-day-count">{row.count} items</div>
+              <div className="busy-day-main">
+                <div className="busy-day-date">{row.date_key}</div>
+                <div className="busy-day-city">{row.top_location_city || '—'}</div>
+                <div className="busy-day-count">{row.count} items</div>
+              </div>
+
+              <div className="busy-day-thumbs" aria-label="当天预览">
+                {(row.preview_items || []).slice(0, 5).map((preview) => {
+                  const src = preview.thumbnail_path
+                    ? `/${preview.thumbnail_path}`
+                    : `/api/media/image/${preview.id}`;
+                  return (
+                    <div key={preview.id} className="busy-day-thumb">
+                      <img src={src} alt="" loading="lazy" />
+                    </div>
+                  );
+                })}
+              </div>
             </Link>
           ))}
         </div>
