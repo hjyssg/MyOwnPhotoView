@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -10,24 +10,26 @@ import {
   withParam,
 } from '../utils/urlState';
 
+const MIN_COUNT_OPTIONS = [10, 50, 100, 300, 500];
+const MIN_COUNT_DEFAULT = 300;
+
 function BusyDaysPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState([]);
-  const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const minCount = readNumberEnumParam(searchParams, 'minCount', [20, 30, 50, 80, 100], 30);
+  const minCount = readNumberEnumParam(searchParams, 'minCount', MIN_COUNT_OPTIONS, MIN_COUNT_DEFAULT);
   const onlyCamera = readBooleanFlagParam(searchParams, 'onlyCamera', '1');
 
   useEffect(() => {
-    let next = normalizeNumberEnumParam(searchParams, 'minCount', [20, 30, 50, 80, 100], 30);
+    let next = normalizeNumberEnumParam(searchParams, 'minCount', MIN_COUNT_OPTIONS, MIN_COUNT_DEFAULT);
     if (!next) next = normalizeBooleanFlagParam(searchParams, 'onlyCamera', '1');
     if (next) setSearchParams(next, { replace: true });
   }, [minCount, onlyCamera, searchParams, setSearchParams]);
 
   const updateMinCount = (value) => {
-    const next = withParam(searchParams, 'minCount', value, { defaultValue: 30 });
+    const next = withParam(searchParams, 'minCount', value, { defaultValue: MIN_COUNT_DEFAULT });
     setSearchParams(next, { replace: true });
   };
 
@@ -52,7 +54,6 @@ function BusyDaysPage() {
         });
         if (canceled) return;
         setItems(res.data?.items || []);
-        setMeta(res.data?.meta || null);
       } catch (e) {
         if (!canceled) {
           setError('加载高产日期失败，请稍后重试');
@@ -68,12 +69,6 @@ function BusyDaysPage() {
     };
   }, [minCount, onlyCamera]);
 
-  const thresholdText = useMemo(() => {
-    if (!meta?.thresholds) return '';
-    const t = meta.thresholds;
-    return `阈值：绝对下限 ${t.abs_floor}；相对阈值 ${t.relative}（中位数 × 2.5）；高阈值 ${t.outlier}`;
-  }, [meta]);
-
   return (
     <div className="gallery-container busy-days-page">
       <h2>高产日期</h2>
@@ -82,7 +77,7 @@ function BusyDaysPage() {
         <label>
           最小数量
           <select value={minCount} onChange={(e) => updateMinCount(Number(e.target.value))}>
-            {[20, 30, 50, 80, 100].map((v) => (
+            {MIN_COUNT_OPTIONS.map((v) => (
               <option key={v} value={v}>{v}</option>
             ))}
           </select>
@@ -97,8 +92,6 @@ function BusyDaysPage() {
           仅相机拍摄
         </label>
       </div>
-
-      {thresholdText && <div className="busy-days-note">{thresholdText}</div>}
 
       {loading ? (
         <div className="loading-indicator">
