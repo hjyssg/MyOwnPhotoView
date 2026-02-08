@@ -1,0 +1,37 @@
+:root {
+  --bg: #f3f6ff;
+  --bg-soft: #e9efff;
+  --panel: rgba(255, 255, 255, 0.76);
+  --panel-strong: rgba(255, 255, 255, 0.9);
+  --line: rgba(97, 121, 176, 0.18);
+  --text-primary: #1d2742;
+  --text-secondary: rgba(34, 49, 84, 0.68);
+  --brand: #4f8cff;
+  --brand-2: #7a6dff;
+  --danger: #cf4a6f;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --shadow-soft: 0 12px 30px rgba(80, 106, 167, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  background:
+    radial-gradient(900px 500px at 88% -5%, rgba(123, 171, 255, 0.35), transparent 65%),
+    radial-gradient(800px 550px at 0% 0%, rgba(155, 139, 255, 0.22), transparent 70%),
+    linear-gradient(180deg, #f7f9ff 0%, #f1f5ff 55%, #edf2ff 100%);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.App {
+  min-height: 100vh;
+}

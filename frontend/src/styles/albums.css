@@ -1,0 +1,55 @@
+.album-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(36, 56, 98, 0.2), rgba(24, 35, 66, 0.48));
+  transition: 0.25s;
+}
+
+.album-name {
+  font-size: 1.55rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #fff;
+}
+
+.album-count {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.album-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.album-card {
+  position: relative;
+  border-radius: var(--radius-md);
+  aspect-ratio: 16 / 11;
+  overflow: hidden;
+  border: 1px solid rgba(124, 147, 196, 0.24);
+  background: #dfe7ff;
+  box-shadow: 0 10px 22px rgba(90, 111, 156, 0.16);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.album-card:hover {
+  box-shadow: 0 16px 28px rgba(74, 94, 138, 0.22);
+}
+
+.album-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.album-empty {
+  background: linear-gradient(140deg, #d8e3ff 0%, #cedcff 100%);
+}

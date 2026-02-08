@@ -1,0 +1,130 @@
+:root {
+  --lb-backdrop: rgba(255, 255, 255, 0.85);
+  --lb-text: #111111;
+}
+
+.lightbox-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--lb-backdrop);
+  backdrop-filter: blur(20px);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.lightbox-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+.lightbox-content img,
+.lightbox-content video {
+  max-width: 95%;
+  max-height: 95%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.close-btn,
+.info-btn,
+.prev-btn,
+.next-btn {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: #111;
+  font-size: 2rem;
+  cursor: pointer;
+  z-index: 2100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+}
+
+.close-btn:hover,
+.info-btn:hover,
+.prev-btn:hover,
+.next-btn:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.close-btn {
+  top: 30px;
+  right: 30px;
+}
+
+.info-btn {
+  top: 30px;
+  right: 102px;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.lightbox-info-panel {
+  position: absolute;
+  top: 100px;
+  right: 30px;
+  width: min(460px, calc(100vw - 60px));
+  max-height: min(60vh, 520px);
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  z-index: 2150;
+}
+
+.lightbox-info-panel .meta-row {
+  margin-bottom: 8px;
+  line-height: 1.4;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.lightbox-info-panel .meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.prev-btn {
+  left: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.next-btn {
+  right: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.prev-btn:active,
+.next-btn:active {
+  background: rgba(255, 255, 255, 0.22);
+}

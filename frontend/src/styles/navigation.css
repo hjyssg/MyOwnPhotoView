@@ -1,0 +1,29 @@
+.nav-bar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(79, 118, 197, 0.08);
+  border: 1px solid rgba(103, 132, 188, 0.2);
+}
+
+.nav-bar a {
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: 0.2s ease;
+  padding: 0.5rem 0.9rem;
+  border-radius: 9px;
+}
+
+.nav-bar a:hover {
+  color: var(--text-primary);
+  background: rgba(137, 167, 229, 0.18);
+}
+
+.nav-bar a.active {
+  color: #1a2340;
+  background: linear-gradient(135deg, rgba(126, 171, 255, 0.38), rgba(161, 148, 255, 0.3));
+  border: 1px solid rgba(140, 166, 229, 0.56);
+}

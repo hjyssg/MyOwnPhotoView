@@ -1,0 +1,96 @@
+.App-header {
+  top: 10px;
+  z-index: 1000;
+  margin: 14px auto 0;
+  width: min(1320px, calc(100% - 28px));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+h1 {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.home-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.home-link:hover {
+  opacity: 0.7;
+}
+
+.gallery-container,
+.albums-container {
+  padding: 1.8rem 1rem 2.2rem;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.gallery-container > h2,
+.albums-container > h2,
+.location-page-title {
+  margin-top: 0.2rem;
+  margin-bottom: 1rem;
+  font-size: 1.8rem;
+  line-height: 1.2;
+}
+
+.location-page-title {
+  margin-top: 0;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid rgba(92, 129, 199, 0.24);
+  border-top-color: var(--brand);
+  animation: loading-spin 0.9s linear infinite;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.empty-state {
+  margin-top: 18px;
+  border: 1px dashed rgba(114, 142, 198, 0.4);
+  border-radius: 16px;
+  padding: 2.6rem 1rem;
+  text-align: center;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.56);
+  font-weight: 600;
+}

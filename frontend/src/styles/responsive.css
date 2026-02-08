@@ -1,0 +1,138 @@
+@media (max-width: 980px) {
+  .App-header {
+    width: calc(100% - 20px);
+    padding: 12px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-left {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .scan-controls {
+    width: 100%;
+  }
+
+  .scan-controls input {
+    width: 100%;
+  }
+
+  .date-group-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .scan-folder-item {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .scan-folder-item > span:first-child {
+    width: 100%;
+  }
+
+  .scan-folder-meta {
+    margin-left: 0 !important;
+  }
+
+  .scan-folder-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .scan-folder-actions button,
+  .scan-add-row button {
+    min-height: 42px;
+    padding: 0.62rem 0.95rem;
+  }
+
+  .scan-add-row input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .network-access-main {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .gallery-container,
+  .albums-container,
+  .map-page-shell {
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+  }
+
+  .gallery-grid {
+    gap: 0.8rem;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .date-group-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .group-header,
+  .group-info {
+    align-items: flex-start;
+  }
+
+  .group-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .group-info {
+    width: 100%;
+  }
+
+  .group-top-line {
+    align-items: flex-start;
+  }
+
+  .timeline-toolbar {
+    align-items: stretch;
+  }
+
+  .timeline-filters {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .album-name {
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+  }
+
+  .busy-day-row {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .busy-day-main {
+    gap: 8px;
+  }
+
+  .busy-day-thumb {
+    width: 30px;
+    height: 30px;
+  }
+
+  .network-access-main {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 360px) {
+  .gallery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .date-group-grid {
+    grid-template-columns: 1fr;
+  }
+}

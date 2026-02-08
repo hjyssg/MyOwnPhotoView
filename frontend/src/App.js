@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import './App.css';
-import Lightbox from './Lightbox';
-import MapView from './MapView';
+import Lightbox from './components/lightbox/Lightbox';
+import MapView from './components/map/MapView';
 import Navigation from './components/Navigation';
 import TimelinePage from './pages/TimelinePage';
 import AlbumsPage from './pages/AlbumsPage';
