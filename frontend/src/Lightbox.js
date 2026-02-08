@@ -29,25 +29,52 @@ function formatDateTime(value) {
 
 const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev }) => {
   const videoRef = useRef(null);
+  const preloadRef = useRef({ timer: null, img: null });
   const [showInfo, setShowInfo] = useState(false);
+  const [isCurrentImageLoaded, setIsCurrentImageLoaded] = useState(false);
 
   useEffect(() => {
     setShowInfo(false);
+    setIsCurrentImageLoaded(false);
   }, [item?.id]);
 
   useEffect(() => {
-    if (!item || item.media_type !== 'image' || !items.length) return;
+    if (!item || item.media_type !== 'image' || !items.length || !isCurrentImageLoaded) return;
+
+    const clearPreload = () => {
+      if (preloadRef.current.timer) {
+        clearTimeout(preloadRef.current.timer);
+      }
+      if (preloadRef.current.img) {
+        preloadRef.current.img.src = '';
+      }
+      preloadRef.current = { timer: null, img: null };
+    };
 
     const preload = (mediaItem) => {
       if (!mediaItem || mediaItem.media_type !== 'image') return;
       const img = new Image();
       img.decoding = 'async';
+      img.fetchPriority = 'low';
       img.src = `/api/media/image/${mediaItem.id}`;
+      preloadRef.current.img = img;
     };
 
-    const nextIndex = (currentIndex + 1) % items.length;
-    preload(items[nextIndex]);
-  }, [item, items, currentIndex]);
+    let offset = 1;
+    let nextImage = null;
+    while (offset < items.length) {
+      const idx = (currentIndex + offset) % items.length;
+      if (items[idx]?.media_type === 'image') {
+        nextImage = items[idx];
+        break;
+      }
+      offset += 1;
+    }
+
+    preloadRef.current.timer = setTimeout(() => preload(nextImage), 120);
+
+    return clearPreload;
+  }, [item, items, currentIndex, isCurrentImageLoaded]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -106,7 +133,10 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev 
           <img 
             src={`/api/media/image/${item.id}`} 
             alt={item.filepath}
-            decoding="async"
+            decoding="auto"
+            loading="eager"
+            fetchPriority="high"
+            onLoad={() => setIsCurrentImageLoaded(true)}
             onError={(e) => {
               console.error('大图加载失败:', item.id);
             }}

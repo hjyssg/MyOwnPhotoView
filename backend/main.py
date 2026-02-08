@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -661,8 +661,8 @@ async def get_image(item_id: str, request: Request):
             },
         )
 
-    return StreamingResponse(
-        open(file_path, 'rb'),
+    return FileResponse(
+        path=file_path,
         media_type=mime_type,
         headers={
             'ETag': etag,
