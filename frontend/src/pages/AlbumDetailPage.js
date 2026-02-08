@@ -38,6 +38,14 @@ function AlbumDetailPage({ openLightboxWithList, formatDuration, allMedia }) {
     };
   }, [safeName, allMedia]);
 
+  const orderedItems = useMemo(
+    () =>
+      [...items].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      ),
+    [items]
+  );
+
   return (
     <div className="gallery-container">
       <h2>{safeName.toUpperCase()}</h2>
@@ -47,8 +55,8 @@ function AlbumDetailPage({ openLightboxWithList, formatDuration, allMedia }) {
         </div>
       ) : (
         <MediaGrid
-          items={items}
-          onItemClick={(_, idx) => openLightboxWithList(items, idx)}
+          items={orderedItems}
+          onItemClick={(_, idx) => openLightboxWithList(orderedItems, idx)}
           formatDuration={formatDuration}
         />
       )}

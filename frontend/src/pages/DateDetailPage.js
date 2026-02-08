@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import MediaGrid from '../components/MediaGrid';
@@ -57,6 +57,14 @@ function DateDetailPage({ openLightboxWithList, formatDuration, allMedia, granul
     };
   }, [dateKey, allMedia, granularity]);
 
+  const orderedItems = useMemo(
+    () =>
+      [...items].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      ),
+    [items]
+  );
+
   const granularityLabel = granularity === 'year' ? 'Year' : granularity === 'month' ? 'Month' : 'Date';
 
   return (
@@ -68,8 +76,8 @@ function DateDetailPage({ openLightboxWithList, formatDuration, allMedia, granul
         </div>
       ) : (
         <MediaGrid
-          items={items}
-          onItemClick={(_, idx) => openLightboxWithList(items, idx)}
+          items={orderedItems}
+          onItemClick={(_, idx) => openLightboxWithList(orderedItems, idx)}
           formatDuration={formatDuration}
         />
       )}

@@ -69,6 +69,7 @@ function LocationDetailPage({ openLightboxWithList, formatDuration, allMedia }) 
           formatDuration={formatDuration}
           showDateLink
           groupBy={groupBy}
+          sortOrder="asc"
           collapsible
         />
       )}

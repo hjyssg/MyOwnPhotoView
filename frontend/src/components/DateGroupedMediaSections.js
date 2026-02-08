@@ -61,6 +61,7 @@ function DateGroupedMediaSections({
   collapsible = true,
   headerStyle,
   groupBy = 'day',
+  sortOrder = 'desc',
 }) {
   const groups = useMemo(() => {
     return (items || []).reduce((acc, item) => {
@@ -72,12 +73,19 @@ function DateGroupedMediaSections({
   }, [items, groupBy]);
 
   const orderedDates = useMemo(
-    () => Object.keys(groups).sort((a, b) => getGroupSortTime(b, groupBy) - getGroupSortTime(a, groupBy)),
-    [groups, groupBy]
+    () =>
+      Object.keys(groups).sort((a, b) => {
+        const diff = getGroupSortTime(a, groupBy) - getGroupSortTime(b, groupBy);
+        return sortOrder === 'asc' ? diff : -diff;
+      }),
+    [groups, groupBy, sortOrder]
   );
 
   return orderedDates.map((dateKey) => {
-    const dateItems = groups[dateKey];
+    const dateItems = [...groups[dateKey]].sort((a, b) => {
+      const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return sortOrder === 'asc' ? diff : -diff;
+    });
     const visibleItems = collapsible ? sampleItemsByRange(dateItems, showLimit) : dateItems;
     const locationEntries = showLocationNames
       ? (() => {
