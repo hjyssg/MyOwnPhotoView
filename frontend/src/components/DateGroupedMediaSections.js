@@ -54,7 +54,7 @@ function DateGroupedMediaSections({
   items,
   openLightboxWithList,
   formatDuration,
-  showLimit = 6,
+  showLimit = 8,
   showLocationNames = false,
   locationDisplayMode = 'all',
   showDateLink = false,
