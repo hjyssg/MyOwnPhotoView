@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import MediaGrid from './MediaGrid';
 
 function formatDateKey(createdAt) {
@@ -36,18 +36,13 @@ function DateGroupedMediaSections({
   items,
   openLightboxWithList,
   formatDuration,
-  expandedDates,
-  onToggleDate,
   showLimit = 6,
   showLocationNames = false,
   showDateLink = false,
   collapsible = true,
   headerStyle,
   groupBy = 'day',
-  expandedKeyPrefix,
 }) {
-  const [internalExpandedDates, setInternalExpandedDates] = useState(new Set());
-
   const groups = useMemo(() => {
     return (items || []).reduce((acc, item) => {
       const key = buildGroupKey(item.created_at, groupBy);
@@ -62,72 +57,66 @@ function DateGroupedMediaSections({
     [groups, groupBy]
   );
 
-  const activeExpandedDates = expandedDates || internalExpandedDates;
-
-  const toggle = (dateKey) => {
-    if (!collapsible) return;
-
-    if (onToggleDate) {
-      onToggleDate(dateKey);
-      return;
-    }
-
-    setInternalExpandedDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(dateKey)) next.delete(dateKey);
-      else next.add(dateKey);
-      return next;
-    });
-  };
-
   return orderedDates.map((dateKey) => {
     const dateItems = groups[dateKey];
-    const expandedKey = expandedKeyPrefix ? `${expandedKeyPrefix}:${dateKey}` : dateKey;
-    const hasHidden = collapsible && dateItems.length > showLimit;
-    const isExpanded = activeExpandedDates.has(expandedKey);
-    const visibleItems = hasHidden && !isExpanded ? dateItems.slice(0, showLimit) : dateItems;
-    const locationNames = showLocationNames
-      ? Array.from(new Set(dateItems.map((m) => m.location_name).filter(Boolean)))
+    const visibleItems = collapsible ? dateItems.slice(0, showLimit) : dateItems;
+    const locationEntries = showLocationNames
+      ? Array.from(
+          new Map(
+            dateItems
+              .map((m) => {
+                const key = (m.location_key || '').trim().toLowerCase();
+                if (!key) return null;
+                return [key, { key, label: m.location_city || m.location_name || key }];
+              })
+              .filter(Boolean)
+          ).values()
+        )
       : [];
 
     return (
       <div key={dateKey} className={`date-group ${dateItems.length > 20 ? 'busy-day' : ''}`}>
         <div
           className="group-header"
-          onClick={() => toggle(expandedKey)}
-          style={{ cursor: collapsible ? 'pointer' : 'default', ...headerStyle }}
+          style={{ ...headerStyle }}
         >
           <div className="group-info">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <h2 className="group-title">{dateKey}</h2>
-              {locationNames.length > 0 && (
-                <span className="group-location">{locationNames.join(' | ')}</span>
-              )}
-              {showDateLink && (
-                <a
-                  href={`/date/${dateKey}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="expand-toggle"
-                >
-                  Open full date in new tab
-                </a>
+            <div className="group-main">
+              <div className="group-top-line">
+                <h2 className="group-title">
+                  {showDateLink ? (
+                    <a
+                      href={`/date/${dateKey}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group-title-link"
+                    >
+                      {dateKey}
+                    </a>
+                  ) : (
+                    dateKey
+                  )}
+                </h2>
+                <span className="group-count">{dateItems.length} items</span>
+              </div>
+              {locationEntries.length > 0 && (
+                <span className="group-location group-location-links">
+                  {locationEntries.map((entry, idx) => (
+                    <React.Fragment key={entry.key}>
+                      <a
+                        href={`/location/${encodeURIComponent(entry.key)}`}
+                        className="group-location-link"
+                        title={`打开城市页：${entry.label}`}
+                      >
+                        {entry.label}
+                      </a>
+                      {idx < locationEntries.length - 1 && <span className="group-location-sep"> | </span>}
+                    </React.Fragment>
+                  ))}
+                </span>
               )}
             </div>
-            <span className="group-count">{dateItems.length} items</span>
           </div>
-          {hasHidden && (
-            <button
-              className="expand-toggle"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggle(expandedKey);
-              }}
-            >
-              {isExpanded ? 'Collapse' : 'Expand'}
-            </button>
-          )}
         </div>
 
         <MediaGrid
