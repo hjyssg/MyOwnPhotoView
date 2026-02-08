@@ -51,7 +51,7 @@ function BusyDaysPage() {
 
   return (
     <div className="gallery-container busy-days-page">
-      <h2>高产日期（旧 → 新）</h2>
+      <h2>高产日期</h2>
 
       <div className="busy-days-toolbar">
         <label>
