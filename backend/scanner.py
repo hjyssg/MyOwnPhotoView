@@ -184,6 +184,50 @@ def _hash_file_content(filepath: Path) -> str:
     return hasher.hexdigest()
 
 
+def _hash_file_sampled(filepath: Path) -> str:
+    """Fast content fingerprint using sampled bytes (head/middle/tail).
+
+    - Small files (<=3MB): hash full content to keep good uniqueness.
+    - Large files: hash only sampled slices to avoid full-file I/O bottleneck.
+    """
+    sample_size = 64 * 1024
+    small_file_threshold = 3 * 1024 * 1024
+
+    if xxhash is not None:
+        hasher = xxhash.xxh64()
+    else:
+        hasher = hashlib.blake2b(digest_size=16)
+
+    try:
+        file_size = filepath.stat().st_size
+    except Exception:
+        return _filename_fingerprint(filepath)
+
+    hasher.update(str(file_size).encode('utf-8'))
+
+    with filepath.open('rb') as f:
+        if file_size <= small_file_threshold:
+            for chunk in iter(lambda: f.read(1024 * 1024), b''):
+                hasher.update(chunk)
+            return hasher.hexdigest()
+
+        # head
+        f.seek(0)
+        hasher.update(f.read(sample_size))
+
+        # middle
+        middle_offset = max(0, (file_size // 2) - (sample_size // 2))
+        f.seek(middle_offset)
+        hasher.update(f.read(sample_size))
+
+        # tail
+        tail_offset = max(0, file_size - sample_size)
+        f.seek(tail_offset)
+        hasher.update(f.read(sample_size))
+
+    return hasher.hexdigest()
+
+
 def _filename_fingerprint(filepath: Path) -> str:
     return hashlib.md5(str(filepath.resolve()).encode()).hexdigest()
 
@@ -409,7 +453,7 @@ def scan_directory(
             continue
 
         try:
-            content_hash = _hash_file_content(filepath)
+            content_hash = _hash_file_sampled(filepath)
         except Exception:
             content_hash = _filename_fingerprint(filepath)
 

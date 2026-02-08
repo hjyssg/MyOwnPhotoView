@@ -211,3 +211,5 @@ cache/
 tmp_test_media_500/
 
 /media_gallery.db
+/backend/data/scan_folders.json
+/backend/data/scan_folders.json
