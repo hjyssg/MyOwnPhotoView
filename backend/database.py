@@ -27,6 +27,7 @@ class MediaItem(Base):
     longitude = Column(Float, nullable=True)
     source_type = Column(String, default='unknown') # 'camera', 'web', 'screenshot', 'video'
     location_name = Column(String, nullable=True)
+    content_hash = Column(String, nullable=True, index=True)
     mtime = Column(Float, nullable=False, default=0)
     size = Column(BigInteger, nullable=False, default=0)
 
@@ -48,4 +49,8 @@ def _apply_lightweight_migrations():
         if "size" not in columns:
             connection.execute(
                 text("ALTER TABLE media_items ADD COLUMN size BIGINT NOT NULL DEFAULT 0")
+            )
+        if "content_hash" not in columns:
+            connection.execute(
+                text("ALTER TABLE media_items ADD COLUMN content_hash TEXT")
             )

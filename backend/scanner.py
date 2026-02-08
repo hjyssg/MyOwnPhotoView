@@ -3,15 +3,22 @@ import datetime
 import hashlib
 import subprocess
 import re
-from typing import Callable
 from pathlib import Path
 from functools import lru_cache
+from typing import Callable
+
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from backend.database import MediaItem, SessionLocal
 from PIL import Image, ImageOps
+from backend.database import MediaItem, SessionLocal
 import json
 import piexif
 import reverse_geocoder as rg
+
+try:
+    import xxhash
+except ImportError:  # pragma: no cover
+    xxhash = None
 
 try:
     from pillow_heif import register_heif_opener
@@ -90,104 +97,6 @@ def reverse_geocode_location(lat, lon):
         return None
 
 
-def get_geo_info(filepath: Path):
-    lat = None
-    lon = None
-    try:
-        if filepath.suffix.lower() in ['.jpg', '.jpeg', '.heic']:
-            img = Image.open(filepath)
-            exif_dict = piexif.load(img.info.get('exif', b''))
-            gps_tags = exif_dict.get('GPS')
-
-            if gps_tags:
-                lat_dms = gps_tags.get(piexif.GPSIFD.GPSLatitude)
-                lat_ref = gps_tags.get(piexif.GPSIFD.GPSLatitudeRef)
-                lon_dms = gps_tags.get(piexif.GPSIFD.GPSLongitude)
-                lon_ref = gps_tags.get(piexif.GPSIFD.GPSLongitudeRef)
-
-                lat = get_decimal_from_dms(lat_dms, lat_ref)
-                lon = get_decimal_from_dms(lon_dms, lon_ref)
-                if not _is_valid_coordinate(lat, lon):
-                    return None, None
-    except Exception:
-        pass
-    return lat, lon
-
-
-def determine_source_type(filepath: Path, media_type: str) -> str:
-    if media_type == 'video':
-        return 'video'
-
-    filename = filepath.name.lower()
-    if 'screenshot' in filename or '鎴睆' in filename:
-        return 'screenshot'
-
-    try:
-        if filepath.suffix.lower() in ['.jpg', '.jpeg', '.heic']:
-            img = Image.open(filepath)
-            exif_dict = piexif.load(img.info.get('exif', b''))
-            if exif_dict.get('0th', {}).get(piexif.ImageIFD.Model):
-                return 'camera'
-    except Exception:
-        pass
-
-    if filepath.suffix.lower() == '.png':
-        return 'screenshot'
-
-    return 'web'
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-def get_creation_time(filepath: Path) -> datetime.datetime:
-    # 1) EXIF DateTime (for common image formats)
-    try:
-        if filepath.suffix.lower() in ['.jpg', '.jpeg', '.heic']:
-            img = Image.open(filepath)
-            exif_dict = piexif.load(img.info.get('exif', b''))
-            date_str = exif_dict.get('0th', {}).get(piexif.ImageIFD.DateTime)
-            if date_str:
-                return datetime.datetime.strptime(date_str.decode(), '%Y:%m:%d %H:%M:%S')
-    except Exception:
-        pass
-
-    # 2) Parse date from filename (supports several common patterns)
-    filename = filepath.stem
-    patterns = [
-        # 2026-01-01_12-34-56 / 20260101_123456 / 2026_01_01-123456
-        r'(?<!\d)(\d{4})[-_]?([01]\d)[-_]?([0-3]\d)[T_\- ]?([0-2]\d)[-_:]?([0-5]\d)[-_:]?([0-5]\d)(?!\d)',
-        # 2026-01-01 / 2026_01_01 / 20260101
-        r'(?<!\d)(\d{4})[-_]?([01]\d)[-_]?([0-3]\d)(?!\d)',
-    ]
-
-    for p in patterns:
-        match = re.search(p, filename)
-        if not match:
-            continue
-        try:
-            parts = [int(v) for v in match.groups()]
-            if len(parts) == 3:
-                y, m, d = parts
-                return datetime.datetime(y, m, d)
-            if len(parts) == 6:
-                y, m, d, hh, mm, ss = parts
-                return datetime.datetime(y, m, d, hh, mm, ss)
-        except Exception:
-            continue
-
-    # 3) Final fallback: filesystem ctime (NOT mtime)
-    try:
-        return datetime.datetime.fromtimestamp(filepath.stat().st_ctime)
-    except Exception:
-        return datetime.datetime.utcnow()
-
-
 def _run_command(command):
     try:
         return subprocess.run(
@@ -219,7 +128,6 @@ def create_video_thumbnail(video_path: Path, thumbnail_path: Path):
     if result is None:
         return
     if result.returncode != 0:
-        # fallback to first frame for very short videos
         fallback_command = [
             'ffmpeg',
             '-y',
@@ -263,9 +171,145 @@ def _is_under_directory(path: str, directory: str) -> bool:
         return False
 
 
-def _remove_thumbnail_file(item: MediaItem):
+def _hash_file_content(filepath: Path) -> str:
+    if xxhash is not None:
+        hasher = xxhash.xxh64()
+    else:
+        hasher = hashlib.blake2b(digest_size=16)
+
+    with filepath.open('rb') as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def _filename_fingerprint(filepath: Path) -> str:
+    return hashlib.md5(str(filepath.resolve()).encode()).hexdigest()
+
+
+def _parse_creation_time_from_filename(filepath: Path) -> datetime.datetime | None:
+    filename = filepath.stem
+    patterns = [
+        r'(?<!\d)(\d{4})[-_]?([01]\d)[-_]?([0-3]\d)[T_\- ]?([0-2]\d)[-_:]?([0-5]\d)[-_:]?([0-5]\d)(?!\d)',
+        r'(?<!\d)(\d{4})[-_]?([01]\d)[-_]?([0-3]\d)(?!\d)',
+    ]
+    for p in patterns:
+        match = re.search(p, filename)
+        if not match:
+            continue
+        try:
+            parts = [int(v) for v in match.groups()]
+            if len(parts) == 3:
+                y, m, d = parts
+                return datetime.datetime(y, m, d)
+            if len(parts) == 6:
+                y, m, d, hh, mm, ss = parts
+                return datetime.datetime(y, m, d, hh, mm, ss)
+        except Exception:
+            continue
+    return None
+
+
+def _fallback_creation_time(filepath: Path) -> datetime.datetime:
+    from_filename = _parse_creation_time_from_filename(filepath)
+    if from_filename is not None:
+        return from_filename
+    try:
+        return datetime.datetime.fromtimestamp(filepath.stat().st_ctime)
+    except Exception:
+        return datetime.datetime.utcnow()
+
+
+def _extract_exif_info(exif_bytes: bytes):
+    if not exif_bytes:
+        return None, None, None
+    try:
+        exif_dict = piexif.load(exif_bytes)
+    except Exception:
+        return None, None, None
+
+    created_at = None
+    date_str = exif_dict.get('0th', {}).get(piexif.ImageIFD.DateTime)
+    if date_str:
+        try:
+            created_at = datetime.datetime.strptime(date_str.decode(), '%Y:%m:%d %H:%M:%S')
+        except Exception:
+            created_at = None
+
+    lat = None
+    lon = None
+    gps_tags = exif_dict.get('GPS')
+    if gps_tags:
+        lat_dms = gps_tags.get(piexif.GPSIFD.GPSLatitude)
+        lat_ref = gps_tags.get(piexif.GPSIFD.GPSLatitudeRef)
+        lon_dms = gps_tags.get(piexif.GPSIFD.GPSLongitude)
+        lon_ref = gps_tags.get(piexif.GPSIFD.GPSLongitudeRef)
+        lat = get_decimal_from_dms(lat_dms, lat_ref)
+        lon = get_decimal_from_dms(lon_dms, lon_ref)
+        if not _is_valid_coordinate(lat, lon):
+            lat, lon = None, None
+
+    model = exif_dict.get('0th', {}).get(piexif.ImageIFD.Model)
+    return created_at, (lat, lon), model
+
+
+def _determine_source_type(filepath: Path, model_tag) -> str:
+    filename = filepath.name.lower()
+    if 'screenshot' in filename or '鎴睆' in filename:
+        return 'screenshot'
+    if filepath.suffix.lower() == '.png':
+        return 'screenshot'
+    if model_tag:
+        return 'camera'
+    return 'web'
+
+
+def _process_image_file(filepath: Path, thumbnail_path: Path):
+    exif_bytes = b''
+    with Image.open(filepath) as img_raw:
+        exif_bytes = img_raw.info.get('exif', b'')
+        img = ImageOps.exif_transpose(img_raw)
+        img.thumbnail((400, 400))
+        img.save(thumbnail_path, 'JPEG')
+
+    exif_created_at, gps, model = _extract_exif_info(exif_bytes)
+    lat, lon = gps if gps else (None, None)
+    created_at = exif_created_at or _fallback_creation_time(filepath)
+    loc_name = reverse_geocode_location(lat, lon)
+    source_type = _determine_source_type(filepath, model)
+
+    return {
+        'created_at': created_at,
+        'latitude': lat,
+        'longitude': lon,
+        'location_name': loc_name,
+        'source_type': source_type,
+    }
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def _remove_thumbnail_file(item: MediaItem, db: Session):
     if not item.thumbnail_path:
         return
+
+    reference_count = (
+        db.query(MediaItem)
+        .filter(
+            MediaItem.thumbnail_path == item.thumbnail_path,
+            MediaItem.filepath != item.filepath,
+        )
+        .count()
+    )
+    if reference_count > 0:
+        return
+
     thumb = THUMBNAIL_DIR / Path(item.thumbnail_path).name
     if thumb.exists():
         try:
@@ -284,11 +328,13 @@ def scan_directory(
     print(f'Scanning directory: {directory}')
     THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
 
-    existing_items = {
-        item.filepath: item
-        for item in db.query(MediaItem).all()
-        if _is_under_directory(item.filepath, directory)
-    }
+    prefix = directory.rstrip('/\\') + os.sep
+    existing_rows = (
+        db.query(MediaItem)
+        .filter(or_(MediaItem.filepath == directory, MediaItem.filepath.like(f'{prefix}%')))
+        .all()
+    )
+    existing_items = {item.filepath: item for item in existing_rows if _is_under_directory(item.filepath, directory)}
 
     seen_paths = set()
     added_count = 0
@@ -315,160 +361,149 @@ def scan_directory(
         )
 
     for index, filepath in enumerate(candidate_files, start=1):
-            ext = filepath.suffix.lower()
+        ext = filepath.suffix.lower()
 
+        if progress_callback:
+            progress_callback(
+                {
+                    'processed_files': index - 1,
+                    'total_files': total_files,
+                    'current_file': str(filepath),
+                    'message': f'running {index - 1}/{total_files}',
+                }
+            )
+
+        try:
+            stat = filepath.stat()
+            abs_filepath = str(filepath.resolve())
+        except Exception:
+            continue
+
+        seen_paths.add(abs_filepath)
+        file_mtime = stat.st_mtime
+        file_size = stat.st_size
+
+        db_item = existing_items.get(abs_filepath)
+
+        unchanged = (
+            (not force_rescan)
+            and db_item
+            and db_item.mtime == file_mtime
+            and db_item.size == file_size
+            and bool(db_item.content_hash)
+        )
+        if unchanged:
+            skipped_count += 1
             if progress_callback:
                 progress_callback(
                     {
-                        'processed_files': index - 1,
+                        'processed_files': index,
                         'total_files': total_files,
-                        'current_file': str(filepath),
-                        'message': f'running {index - 1}/{total_files}',
+                        'current_file': abs_filepath,
+                        'message': f'running {index}/{total_files}',
                     }
                 )
+            continue
 
+        try:
+            content_hash = _hash_file_content(filepath)
+        except Exception:
+            content_hash = _filename_fingerprint(filepath)
+
+        thumbnail_filename = f'{content_hash}.jpg'
+        thumbnail_path = THUMBNAIL_DIR / thumbnail_filename
+
+        if ext in SUPPORTED_IMAGE_EXTENSIONS:
             try:
-                stat = filepath.stat()
-                abs_filepath = str(filepath.resolve())
+                image_info = _process_image_file(filepath, thumbnail_path)
             except Exception:
-                continue
+                image_info = {
+                    'created_at': _fallback_creation_time(filepath),
+                    'latitude': None,
+                    'longitude': None,
+                    'location_name': None,
+                    'source_type': 'web',
+                }
 
-            seen_paths.add(abs_filepath)
-            unique_id = hashlib.md5(abs_filepath.encode()).hexdigest()
-            thumbnail_filename = f'{unique_id}.jpg'
-            thumbnail_path = THUMBNAIL_DIR / thumbnail_filename
-            file_mtime = stat.st_mtime
-            file_size = stat.st_size
+            if db_item:
+                db_item.media_type = 'image'
+                db_item.created_at = image_info['created_at']
+                db_item.duration = None
+                db_item.thumbnail_path = f'thumbnails/{thumbnail_filename}'
+                db_item.latitude = image_info['latitude']
+                db_item.longitude = image_info['longitude']
+                db_item.source_type = image_info['source_type']
+                db_item.location_name = image_info['location_name']
+                db_item.content_hash = content_hash
+                db_item.mtime = file_mtime
+                db_item.size = file_size
+                updated_count += 1
+            else:
+                item = MediaItem(
+                    id=_filename_fingerprint(filepath),
+                    filepath=abs_filepath,
+                    media_type='image',
+                    created_at=image_info['created_at'],
+                    thumbnail_path=f'thumbnails/{thumbnail_filename}',
+                    latitude=image_info['latitude'],
+                    longitude=image_info['longitude'],
+                    source_type=image_info['source_type'],
+                    location_name=image_info['location_name'],
+                    content_hash=content_hash,
+                    mtime=file_mtime,
+                    size=file_size,
+                )
+                db.add(item)
+                added_count += 1
 
-            db_item = existing_items.get(abs_filepath)
-
-            if (not force_rescan) and db_item and db_item.mtime == file_mtime and db_item.size == file_size:
-                refreshed_created_at = get_creation_time(filepath)
-                if db_item.created_at != refreshed_created_at:
-                    db_item.created_at = refreshed_created_at
-                    updated_count += 1
-                if db_item.media_type == 'image' and _is_valid_coordinate(db_item.latitude, db_item.longitude):
-                    refreshed_location = reverse_geocode_location(db_item.latitude, db_item.longitude)
-                    if db_item.location_name != refreshed_location:
-                        db_item.location_name = refreshed_location
-                        updated_count += 1
-                if db_item.media_type == 'video':
-                    if db_item.duration in [None, 0]:
-                        db_item.duration = get_video_duration(filepath)
-                        updated_count += 1
-                    if not thumbnail_path.exists():
-                        create_video_thumbnail(filepath, thumbnail_path)
-                        updated_count += 1
-                skipped_count += 1
-                if progress_callback:
-                    progress_callback(
-                        {
-                            'processed_files': index,
-                            'total_files': total_files,
-                            'current_file': abs_filepath,
-                            'message': f'running {index}/{total_files}',
-                        }
-                    )
-                continue
-
-            if ext in SUPPORTED_IMAGE_EXTENSIONS:
-                lat, lon = get_geo_info(filepath)
-                loc_name = reverse_geocode_location(lat, lon)
-
-                try:
-                    with Image.open(filepath) as img:
-                        img = ImageOps.exif_transpose(img)
-                        img.thumbnail((400, 400))
-                        img.save(thumbnail_path, 'JPEG')
-                except Exception:
-                    pass
-
-                source_type = determine_source_type(filepath, 'image')
-
-                if db_item:
-                    db_item.media_type = 'image'
-                    db_item.created_at = get_creation_time(filepath)
-                    db_item.duration = None
-                    db_item.thumbnail_path = f'thumbnails/{thumbnail_filename}'
-                    db_item.latitude = lat
-                    db_item.longitude = lon
-                    db_item.source_type = source_type
-                    db_item.location_name = loc_name
-                    db_item.mtime = file_mtime
-                    db_item.size = file_size
-                    updated_count += 1
-                else:
-                    item = MediaItem(
-                        id=unique_id,
-                        filepath=abs_filepath,
-                        media_type='image',
-                        created_at=get_creation_time(filepath),
-                        thumbnail_path=f'thumbnails/{thumbnail_filename}',
-                        latitude=lat,
-                        longitude=lon,
-                        source_type=source_type,
-                        location_name=loc_name,
-                        mtime=file_mtime,
-                        size=file_size,
-                    )
-                    db.add(item)
-                    added_count += 1
-
-                if progress_callback:
-                    progress_callback(
-                        {
-                            'processed_files': index,
-                            'total_files': total_files,
-                            'current_file': abs_filepath,
-                            'message': f'running {index}/{total_files}',
-                        }
-                    )
-
-            elif ext in SUPPORTED_VIDEO_EXTENSIONS:
+        elif ext in SUPPORTED_VIDEO_EXTENSIONS:
+            if not thumbnail_path.exists() or force_rescan:
                 create_video_thumbnail(filepath, thumbnail_path)
-                duration = get_video_duration(filepath)
+            duration = get_video_duration(filepath)
 
-                if db_item:
-                    db_item.media_type = 'video'
-                    db_item.created_at = get_creation_time(filepath)
-                    db_item.duration = duration
-                    db_item.thumbnail_path = f'thumbnails/{thumbnail_filename}'
-                    db_item.source_type = 'video'
-                    db_item.location_name = None
-                    db_item.latitude = None
-                    db_item.longitude = None
-                    db_item.mtime = file_mtime
-                    db_item.size = file_size
-                    updated_count += 1
-                else:
-                    item = MediaItem(
-                        id=unique_id,
-                        filepath=abs_filepath,
-                        media_type='video',
-                        created_at=get_creation_time(filepath),
-                        duration=duration,
-                        thumbnail_path=f'thumbnails/{thumbnail_filename}',
-                        source_type='video',
-                        mtime=file_mtime,
-                        size=file_size,
-                    )
-                    db.add(item)
-                    added_count += 1
+            if db_item:
+                db_item.media_type = 'video'
+                db_item.created_at = _fallback_creation_time(filepath)
+                db_item.duration = duration
+                db_item.thumbnail_path = f'thumbnails/{thumbnail_filename}'
+                db_item.source_type = 'video'
+                db_item.location_name = None
+                db_item.latitude = None
+                db_item.longitude = None
+                db_item.content_hash = content_hash
+                db_item.mtime = file_mtime
+                db_item.size = file_size
+                updated_count += 1
+            else:
+                item = MediaItem(
+                    id=_filename_fingerprint(filepath),
+                    filepath=abs_filepath,
+                    media_type='video',
+                    created_at=_fallback_creation_time(filepath),
+                    duration=duration,
+                    thumbnail_path=f'thumbnails/{thumbnail_filename}',
+                    source_type='video',
+                    content_hash=content_hash,
+                    mtime=file_mtime,
+                    size=file_size,
+                )
+                db.add(item)
+                added_count += 1
 
-                if progress_callback:
-                    progress_callback(
-                        {
-                            'processed_files': index,
-                            'total_files': total_files,
-                            'current_file': abs_filepath,
-                            'message': f'running {index}/{total_files}',
-                        }
-                    )
+        if progress_callback:
+            progress_callback(
+                {
+                    'processed_files': index,
+                    'total_files': total_files,
+                    'current_file': abs_filepath,
+                    'message': f'running {index}/{total_files}',
+                }
+            )
 
     deleted_count = 0
     for existing_path, item in existing_items.items():
         if existing_path not in seen_paths:
-            _remove_thumbnail_file(item)
+            _remove_thumbnail_file(item, db)
             db.delete(item)
             deleted_count += 1
 

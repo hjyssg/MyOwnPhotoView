@@ -14,6 +14,7 @@ import threading
 import datetime
 import json
 import math
+import shutil
 
 # Ensure required static directories exist so StaticFiles doesn't fail on startup
 os.makedirs('backend/cache/thumbnails', exist_ok=True)
@@ -445,6 +446,56 @@ def scan_all_media_endpoint(force_rescan: bool | None = None):
         'status': 'started',
         'message': 'Scan-all started in background',
         'directories': existing,
+    }
+
+
+@app.post('/api/scan/reset')
+def reset_scan_data_endpoint():
+    with scan_lock:
+        if scan_state['is_running']:
+            raise HTTPException(status_code=409, detail='Scan is running, cannot reset now')
+
+    db = SessionLocal()
+    try:
+        deleted = db.query(MediaItem).delete()
+        db.commit()
+    finally:
+        db.close()
+
+    thumbnail_dir = 'backend/cache/thumbnails'
+    removed_thumbnails = 0
+    if os.path.isdir(thumbnail_dir):
+        for name in os.listdir(thumbnail_dir):
+            file_path = os.path.join(thumbnail_dir, name)
+            try:
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                    removed_thumbnails += 1
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path, ignore_errors=True)
+            except Exception:
+                pass
+
+    _update_scan_state(
+        is_running=False,
+        directory=None,
+        current_folder=None,
+        current_file=None,
+        processed_files=0,
+        total_files=0,
+        current_folder_index=0,
+        total_folders=0,
+        stats=None,
+        started_at=None,
+        finished_at=_now_iso(),
+        message='idle',
+        error=None,
+    )
+
+    return {
+        'status': 'ok',
+        'deleted_media_items': int(deleted or 0),
+        'deleted_thumbnails': removed_thumbnails,
     }
 
 
