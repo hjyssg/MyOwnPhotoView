@@ -18,6 +18,17 @@ from backend.services.media_service import (
 router = APIRouter()
 
 
+def _load_media_snapshot(db: Session, item_id: str):
+    try:
+        item = get_media_item_or_none(db, item_id)
+        if not item:
+            return None
+        return {'filepath': item.filepath, 'media_type': item.media_type}
+    finally:
+        # For file/stream responses, release DB connections before response body is sent.
+        db.close()
+
+
 @router.get('/api/media')
 def get_media_items(db: Session = Depends(get_db)):
     return get_active_media_dicts(db)
@@ -77,10 +88,10 @@ def get_media_by_album(name: str, db: Session = Depends(get_db)):
 
 @router.get('/api/media/image/{item_id}')
 async def get_image(item_id: str, request: Request, db: Session = Depends(get_db)):
-    item = get_media_item_or_none(db, item_id)
-    if not item:
+    snapshot = _load_media_snapshot(db, item_id)
+    if not snapshot:
         raise HTTPException(status_code=404, detail='Media item not found')
-    file_path = item.filepath
+    file_path = snapshot['filepath']
 
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail='File not found')
@@ -101,10 +112,10 @@ async def get_image(item_id: str, request: Request, db: Session = Depends(get_db
 
 @router.get('/api/media/stream/{item_id}')
 async def stream_video(item_id: str, request: Request, db: Session = Depends(get_db)):
-    item = get_media_item_or_none(db, item_id)
-    if not item or item.media_type != 'video':
+    snapshot = _load_media_snapshot(db, item_id)
+    if not snapshot or snapshot['media_type'] != 'video':
         raise HTTPException(status_code=404, detail='Video not found')
-    video_path = item.filepath
+    video_path = snapshot['filepath']
 
     if not os.path.exists(video_path):
         raise HTTPException(status_code=404, detail='Video file not found')
