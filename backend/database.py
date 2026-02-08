@@ -1,9 +1,14 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, BigInteger, text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
 import datetime
+from pathlib import Path
 
-DATABASE_URL = "sqlite:///./gallery.db"
+from sqlalchemy import BigInteger, Column, DateTime, Float, Integer, String, create_engine, text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+from backend.core.config import APP_RUNTIME_ROOT
+
+DB_PATH = Path(APP_RUNTIME_ROOT) / 'gallery.db'
+DATABASE_URL = f"sqlite:///{DB_PATH.as_posix()}"
 
 engine = create_engine(
     DATABASE_URL, connect_args={"check_same_thread": False}

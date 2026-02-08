@@ -3,9 +3,11 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from backend.core.config import APP_BUNDLE_ROOT
 
-ALIAS_PATH = Path('backend/data/location_alias_zh.json')
-LOCATION_ZH_MAP_PATH = Path('backend/data/location_zh_map.json')
+
+ALIAS_PATH = Path(APP_BUNDLE_ROOT) / 'backend' / 'data' / 'location_alias_zh.json'
+LOCATION_ZH_MAP_PATH = Path(APP_BUNDLE_ROOT) / 'backend' / 'data' / 'location_zh_map.json'
 
 
 @lru_cache(maxsize=1)

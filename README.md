@@ -136,3 +136,58 @@ python backend/scripts/refresh_locations.py --directory "D:/Git/MyOwnPhotoView/m
 - `backend/data/location_alias_zh.json`（别名聚合，如 Shanghai Shi/Pujiang → 上海）
 
 你可以在这两个文件中持续扩展映射与别名规则；未命中的项将保留英文。
+
+## 📦 发布打包（Windows 一键启动）
+
+下面是**下次复用**的标准打包流程（前端 build + 后端 exe）：
+
+### 1) 构建前端
+
+在项目根目录执行：
+
+```bash
+npm --prefix frontend install
+npm --prefix frontend run build
+```
+
+成功后会生成：
+- `frontend/build/`
+
+### 2) 安装 PyInstaller（后端 venv 内）
+
+```bash
+python -m pip install pyinstaller
+```
+
+### 3) 打包后端为单文件 exe
+
+在项目根目录执行：
+
+```bash
+python -m PyInstaller --noconfirm --clean --onefile --name LocalSmartGallery --add-data "frontend/build;frontend/build" --add-data "backend/data/location_alias_zh.json;backend/data" --add-data "backend/data/location_zh_map.json;backend/data" backend/main.py
+```
+
+成功后会生成：
+- `dist/LocalSmartGallery.exe`
+
+### 4) 一键启动脚本
+
+发布目录需包含：
+- `dist/LocalSmartGallery.exe`
+- `dist/start.bat`
+
+用户双击 `start.bat` 即可启动并自动打开：
+- `http://127.0.0.1:8000`
+
+### 5) 给别人发布时怎么发
+
+直接把 `dist/` 整个目录打包发出去即可（zip/7z 都行）。
+
+---
+
+### 发布版注意事项
+
+- 首次运行会在 exe 同目录生成运行数据（如 `gallery.db`、`backend/cache/`、`backend/data/`）。
+- 视频封面/时长依赖系统中的 `ffmpeg` / `ffprobe`；目标机器建议提前安装并加入 PATH。
+- 若 8000 端口占用，可设置环境变量后启动：
+  - `set PORT=9000 && LocalSmartGallery.exe`

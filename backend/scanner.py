@@ -10,6 +10,7 @@ from typing import Callable
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from PIL import Image, ImageOps
+from backend.core.config import APP_BUNDLE_ROOT, THUMBNAIL_DIR
 from backend.database import MediaItem, SessionLocal
 import json
 import piexif
@@ -29,7 +30,7 @@ except ImportError:
 
 SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic']
 SUPPORTED_VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi']
-THUMBNAIL_DIR = Path('backend/cache/thumbnails')
+THUMBNAIL_DIR = Path(THUMBNAIL_DIR)
 COMMIT_EVERY = 300
 
 
@@ -54,7 +55,7 @@ def _is_valid_coordinate(lat, lon):
     return -90 <= lat <= 90 and -180 <= lon <= 180
 
 
-CN_MAP_PATH = Path('backend/data/location_zh_map.json')
+CN_MAP_PATH = Path(APP_BUNDLE_ROOT) / 'backend' / 'data' / 'location_zh_map.json'
 
 
 @lru_cache(maxsize=1)
