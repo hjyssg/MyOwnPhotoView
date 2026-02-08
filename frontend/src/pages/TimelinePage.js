@@ -62,7 +62,7 @@ function TimelinePage({
           onToggleDate={toggleDate}
           showLimit={8}
           showLocationNames
-          showDateLink={groupBy === 'day'}
+          showDateLink
           groupBy={groupBy}
           expandedKeyPrefix={groupBy}
           collapsible

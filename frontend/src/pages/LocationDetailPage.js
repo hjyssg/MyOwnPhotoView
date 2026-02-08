@@ -52,6 +52,7 @@ function LocationDetailPage({ openLightboxWithList, formatDuration, allMedia }) 
           openLightboxWithList={openLightboxWithList}
           formatDuration={formatDuration}
           showLimit={6}
+          showDateLink
           collapsible
         />
       )}

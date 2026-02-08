@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import MediaGrid from './MediaGrid';
+import DateLabel from './DateLabel';
 
 function formatDateKey(createdAt) {
   const d = new Date(createdAt);
@@ -101,18 +102,7 @@ function DateGroupedMediaSections({
             <div className="group-main">
               <div className="group-top-line">
                 <h2 className="group-title">
-                  {showDateLink ? (
-                    <a
-                      href={`/date/${dateKey}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="group-title-link"
-                    >
-                      {dateKey}
-                    </a>
-                  ) : (
-                    dateKey
-                  )}
+                  <DateLabel value={dateKey} groupBy={groupBy} clickable={showDateLink} />
                 </h2>
                 <span className="group-count">{dateItems.length} items</span>
               </div>

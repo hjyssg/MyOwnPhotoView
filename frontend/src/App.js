@@ -176,12 +176,46 @@ function AppContent() {
           element={<AlbumsPage smartAlbums={smartAlbums} formatDuration={formatDuration} />}
         />
         <Route
+          path="/date/day/:dateKey"
+          element={
+            <DateDetailPage
+              allMedia={media}
+              openLightboxWithList={openLightboxWithList}
+              formatDuration={formatDuration}
+              granularity="day"
+            />
+          }
+        />
+        <Route
+          path="/date/month/:dateKey"
+          element={
+            <DateDetailPage
+              allMedia={media}
+              openLightboxWithList={openLightboxWithList}
+              formatDuration={formatDuration}
+              granularity="month"
+            />
+          }
+        />
+        <Route
+          path="/date/year/:dateKey"
+          element={
+            <DateDetailPage
+              allMedia={media}
+              openLightboxWithList={openLightboxWithList}
+              formatDuration={formatDuration}
+              granularity="year"
+            />
+          }
+        />
+        <Route
           path="/date/:dateKey"
           element={
             <DateDetailPage
               allMedia={media}
               openLightboxWithList={openLightboxWithList}
               formatDuration={formatDuration}
+              granularity="day"
             />
           }
         />
