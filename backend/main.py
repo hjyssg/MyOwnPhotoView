@@ -326,6 +326,19 @@ def _sample_items_by_range(items: list[dict], sample_count: int) -> list[dict]:
     return sampled
 
 
+def _normalize_location_key_for_match(location_key: str | None) -> str:
+    return (location_key or '').strip().lower()
+
+
+def _query_mappable_media_items(db: Session) -> list[MediaItem]:
+    return (
+        db.query(MediaItem)
+        .filter(MediaItem.latitude.isnot(None), MediaItem.longitude.isnot(None), MediaItem.is_deleted == 0)
+        .order_by(MediaItem.created_at.desc())
+        .all()
+    )
+
+
 def _is_under_any_scan_folder(filepath: str, folders: list[str]) -> bool:
     abs_path = os.path.abspath(filepath)
     for folder in folders:
@@ -727,12 +740,7 @@ def get_media_by_album(name: str, db: Session = Depends(get_db)):
 
 @app.get('/api/locations')
 def get_locations(db: Session = Depends(get_db)):
-    items = (
-        db.query(MediaItem)
-        .filter(MediaItem.latitude.isnot(None), MediaItem.longitude.isnot(None), MediaItem.is_deleted == 0)
-        .order_by(MediaItem.created_at.desc())
-        .all()
-    )
+    items = _query_mappable_media_items(db)
 
     groups = {}
     for item in items:
@@ -775,15 +783,16 @@ def get_locations(db: Session = Depends(get_db)):
 
 @app.get('/api/media/by-location')
 def get_media_by_location(key: str, db: Session = Depends(get_db)):
-    target = (key or '').strip().lower()
+    target = _normalize_location_key_for_match(key)
     if not target:
         raise HTTPException(status_code=400, detail='Missing location key')
 
-    items = db.query(MediaItem).filter(MediaItem.is_deleted == 0).order_by(MediaItem.created_at.desc()).all()
+    # 与 /api/locations 使用完全一致的数据口径（仅统计可上地图的媒体）。
+    items = _query_mappable_media_items(db)
     filtered = []
     for item in items:
         _, location_key = normalize_location_name(item.location_name)
-        if (location_key or '').lower() == target:
+        if _normalize_location_key_for_match(location_key) == target:
             filtered.append(media_item_to_dict(item))
     return filtered
 

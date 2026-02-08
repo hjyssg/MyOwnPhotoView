@@ -47,6 +47,7 @@ function LocationDetailPage({ openLightboxWithList, formatDuration, allMedia }) 
   return (
     <div className="gallery-container">
       <h2 className="location-page-title">{title}</h2>
+      <div className="location-page-count">共 {filteredItems.length} 张</div>
 
       <TopControlBar
         activeFilter={activeFilter}
@@ -66,7 +67,6 @@ function LocationDetailPage({ openLightboxWithList, formatDuration, allMedia }) 
           items={filteredItems}
           openLightboxWithList={openLightboxWithList}
           formatDuration={formatDuration}
-          showLimit={6}
           showDateLink
           groupBy={groupBy}
           collapsible
