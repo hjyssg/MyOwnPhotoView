@@ -184,15 +184,8 @@ function SettingsPage({ onScanCompleted, showToast }) {
   };
 
   const statusText = useMemo(() => {
-    const currentFolder = scanStatus?.current_folder || scanStatus?.directory;
-    const processed = Number(scanStatus?.processed_files || 0);
-    const total = Number(scanStatus?.total_files || 0);
-
     if (scanStatus?.is_running) {
-      if (total > 0) {
-        return `Scanning: ${processed}/${total}${currentFolder ? ` | ${currentFolder}` : ''}`;
-      }
-      return `Scanning${currentFolder ? `: ${currentFolder}` : ''}`;
+      return '扫描中';
     }
     if (scanStatus?.message === 'completed') return 'Last scan completed';
     if (scanStatus?.message === 'failed') return `Failed: ${scanStatus.error || 'unknown error'}`;
@@ -308,8 +301,8 @@ function SettingsPage({ onScanCompleted, showToast }) {
           Folder Management
         </div>
 
-        <div className="scan-status">Status: {statusText}</div>
-        {!!etaText && <div className="scan-status" style={{ opacity: 0.9 }}>ETA: {etaText}</div>}
+        {/* <div className="scan-status">Status: {statusText}</div> */}
+        {!!etaText && <div className="scan-status" style={{ opacity: 0.9 }}>{etaText}</div>}
 
         {folderItems.length === 0 ? (
           <div className="empty-state">No scan folders configured</div>
