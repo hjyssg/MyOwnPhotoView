@@ -273,7 +273,7 @@ def _remove_thumbnail_file(item: MediaItem):
             pass
 
 
-def scan_directory(directory: str, db: Session):
+def scan_directory(directory: str, db: Session, force_rescan: bool = False):
     directory = os.path.abspath(directory)
     print(f'Scanning directory: {directory}')
     THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
@@ -311,7 +311,7 @@ def scan_directory(directory: str, db: Session):
 
             db_item = existing_items.get(abs_filepath)
 
-            if db_item and db_item.mtime == file_mtime and db_item.size == file_size:
+            if (not force_rescan) and db_item and db_item.mtime == file_mtime and db_item.size == file_size:
                 refreshed_created_at = get_creation_time(filepath)
                 if db_item.created_at != refreshed_created_at:
                     db_item.created_at = refreshed_created_at
@@ -420,6 +420,6 @@ def scan_directory(directory: str, db: Session):
     )
 
 
-def start_scan(directory: str):
+def start_scan(directory: str, force_rescan: bool = False):
     db = next(get_db())
-    scan_directory(directory, db)
+    scan_directory(directory, db, force_rescan=force_rescan)

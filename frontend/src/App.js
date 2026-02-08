@@ -10,7 +10,7 @@ import AlbumsPage from './pages/AlbumsPage';
 import DateDetailPage from './pages/DateDetailPage';
 import AlbumDetailPage from './pages/AlbumDetailPage';
 import LocationDetailPage from './pages/LocationDetailPage';
-import ScanPage from './pages/ScanPage';
+import SettingsPage from './pages/SettingsPage';
 import BusyDaysPage from './pages/BusyDaysPage';
 
 function AppContent() {
@@ -26,6 +26,7 @@ function AppContent() {
 
   const loaderRef = useRef(null);
   const toastTimerRef = useRef(null);
+  const hasShownSetupToastRef = useRef(false);
   const pageRef = useRef(1);
   const itemsPerPage = 50;
 
@@ -60,6 +61,36 @@ function AppContent() {
   useEffect(() => {
     fetchMedia();
   }, [fetchMedia]);
+
+  useEffect(() => {
+    if (location.pathname !== '/') return;
+    if (hasShownSetupToastRef.current) return;
+    if (media.length > 0) return;
+
+    let cancelled = false;
+    const checkScanSetup = async () => {
+      try {
+        const res = await axios.get('/api/scan/folders');
+        if (cancelled) return;
+
+        const items = Array.isArray(res.data?.items) ? res.data.items : [];
+        const hasConfiguredFolders = items.length > 0;
+        const hasAnyScanned = items.some((item) => !!item?.has_scanned);
+
+        if (!hasConfiguredFolders || !hasAnyScanned) {
+          hasShownSetupToastRef.current = true;
+          showToast('Please go to Settings to add folders and run Scan.', 'error');
+        }
+      } catch (_) {
+        // ignore guidance toast failure
+      }
+    };
+
+    checkScanSetup();
+    return () => {
+      cancelled = true;
+    };
+  }, [media, location.pathname, showToast]);
 
   useEffect(() => {
     return () => {
@@ -159,7 +190,7 @@ function AppContent() {
     else if (pathname === '/map') pageTitle = 'Map';
     else if (pathname === '/albums') pageTitle = 'Albums';
     else if (pathname === '/busy-days') pageTitle = 'Busy Days';
-    else if (pathname === '/scan') pageTitle = 'Scan';
+    else if (pathname === '/settings' || pathname === '/scan') pageTitle = 'Settings';
     else if (pathParts[0] === 'album' && pathParts[1]) {
       pageTitle = `Album · ${decodePathPart(pathParts[1])}`;
     } else if (pathParts[0] === 'location' && pathParts[1]) {
@@ -280,8 +311,12 @@ function AppContent() {
           }
         />
         <Route
+          path="/settings"
+          element={<SettingsPage onScanCompleted={fetchMedia} showToast={showToast} />}
+        />
+        <Route
           path="/scan"
-          element={<ScanPage onScanCompleted={fetchMedia} showToast={showToast} />}
+          element={<SettingsPage onScanCompleted={fetchMedia} showToast={showToast} />}
         />
       </Routes>
 

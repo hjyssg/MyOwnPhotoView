@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 
 function Navigation() {
   const location = useLocation();
+  const isSettings = location.pathname === '/settings' || location.pathname === '/scan';
 
   return (
     <nav className="nav-bar">
@@ -18,8 +19,8 @@ function Navigation() {
       <Link to="/busy-days" className={location.pathname === '/busy-days' ? 'active' : ''}>
         Busy Days
       </Link>
-      <Link to="/scan" className={location.pathname === '/scan' ? 'active' : ''}>
-        Scan
+      <Link to="/settings" className={isSettings ? 'active' : ''}>
+        Settings
       </Link>
     </nav>
   );

@@ -25,10 +25,22 @@ app.mount('/thumbnails', StaticFiles(directory='backend/cache/thumbnails'), name
 app.mount('/media', StaticFiles(directory='backend/media'), name='media')
 
 SCAN_FOLDERS_CONFIG_PATH = 'backend/data/scan_folders.json'
+APP_SETTINGS_CONFIG_PATH = 'backend/data/app_settings.json'
+
+
+DEFAULT_APP_SETTINGS = {
+    'auto_scan_on_startup': False,
+    'scan_mode': 'incremental',  # incremental | force
+}
 
 
 class ScanFoldersPayload(BaseModel):
     folders: list[str]
+
+
+class AppSettingsPayload(BaseModel):
+    auto_scan_on_startup: bool
+    scan_mode: str
 
 scan_lock = threading.Lock()
 scan_state = {
@@ -87,6 +99,45 @@ def _save_scan_folders_config(folders: list[str]):
         json.dump({'folders': folders}, f, ensure_ascii=False, indent=2)
 
 
+def _normalize_scan_mode(value: str | None) -> str:
+    mode = (value or '').strip().lower()
+    return 'force' if mode == 'force' else 'incremental'
+
+
+def _load_app_settings() -> dict:
+    settings = dict(DEFAULT_APP_SETTINGS)
+    if not os.path.exists(APP_SETTINGS_CONFIG_PATH):
+        return settings
+
+    try:
+        with open(APP_SETTINGS_CONFIG_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            settings['auto_scan_on_startup'] = bool(data.get('auto_scan_on_startup', settings['auto_scan_on_startup']))
+            settings['scan_mode'] = _normalize_scan_mode(data.get('scan_mode'))
+    except Exception:
+        pass
+
+    return settings
+
+
+def _save_app_settings(settings: dict):
+    os.makedirs(os.path.dirname(APP_SETTINGS_CONFIG_PATH), exist_ok=True)
+    payload = {
+        'auto_scan_on_startup': bool(settings.get('auto_scan_on_startup', False)),
+        'scan_mode': _normalize_scan_mode(settings.get('scan_mode')),
+    }
+    with open(APP_SETTINGS_CONFIG_PATH, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def _should_force_rescan(force_rescan: bool | None = None) -> bool:
+    if force_rescan is not None:
+        return bool(force_rescan)
+    settings = _load_app_settings()
+    return settings.get('scan_mode') == 'force'
+
+
 def _get_folder_scan_stats(db: Session, folder: str) -> tuple[bool, int]:
     abs_folder = os.path.abspath(folder).rstrip('/\\')
     prefix = abs_folder + os.sep
@@ -105,7 +156,7 @@ def _get_folder_scan_stats(db: Session, folder: str) -> tuple[bool, int]:
     return count > 0, int(count)
 
 
-def _run_scan_job(directory: str):
+def _run_scan_job(directory: str, force_rescan: bool = False):
     _update_scan_state(
         is_running=True,
         directory=directory,
@@ -117,7 +168,7 @@ def _run_scan_job(directory: str):
 
     db = SessionLocal()
     try:
-        scan_directory(directory, db)
+        scan_directory(directory, db, force_rescan=force_rescan)
         _update_scan_state(is_running=False, finished_at=_now_iso(), message='completed')
     except Exception as e:
         _update_scan_state(
@@ -130,7 +181,7 @@ def _run_scan_job(directory: str):
         db.close()
 
 
-def _run_scan_all_job(directories: list[str]):
+def _run_scan_all_job(directories: list[str], force_rescan: bool = False):
     total = len(directories)
     _update_scan_state(
         is_running=True,
@@ -145,7 +196,7 @@ def _run_scan_all_job(directories: list[str]):
     try:
         for idx, directory in enumerate(directories, start=1):
             _update_scan_state(message=f'running {idx}/{total}: {directory}')
-            scan_directory(directory, db)
+            scan_directory(directory, db, force_rescan=force_rescan)
         _update_scan_state(is_running=False, finished_at=_now_iso(), message='completed')
     except Exception as e:
         _update_scan_state(
@@ -203,9 +254,29 @@ def _sample_items_by_range(items: list[dict], sample_count: int) -> list[dict]:
 def on_startup():
     create_db_and_tables()
 
+    settings = _load_app_settings()
+    if not settings.get('auto_scan_on_startup'):
+        return
+
+    folders = _load_scan_folders_config()
+    existing = [p for p in folders if os.path.isdir(p)]
+    if not existing:
+        return
+
+    with scan_lock:
+        if scan_state['is_running']:
+            return
+
+    worker = threading.Thread(
+        target=_run_scan_all_job,
+        args=(existing, _should_force_rescan()),
+        daemon=True,
+    )
+    worker.start()
+
 
 @app.post('/api/scan')
-def scan_media_endpoint(directory: str):
+def scan_media_endpoint(directory: str, force_rescan: bool | None = None):
     requested_path = os.path.abspath(directory)
 
     if not os.path.isdir(requested_path):
@@ -219,7 +290,11 @@ def scan_media_endpoint(directory: str):
                 'directory': scan_state['directory'],
             }
 
-    worker = threading.Thread(target=_run_scan_job, args=(requested_path,), daemon=True)
+    worker = threading.Thread(
+        target=_run_scan_job,
+        args=(requested_path, _should_force_rescan(force_rescan)),
+        daemon=True,
+    )
     worker.start()
 
     return {
@@ -258,8 +333,23 @@ def save_scan_folders_endpoint(payload: ScanFoldersPayload):
     return {'folders': folders}
 
 
+@app.get('/api/settings')
+def get_app_settings_endpoint():
+    return _load_app_settings()
+
+
+@app.put('/api/settings')
+def save_app_settings_endpoint(payload: AppSettingsPayload):
+    normalized = {
+        'auto_scan_on_startup': payload.auto_scan_on_startup,
+        'scan_mode': _normalize_scan_mode(payload.scan_mode),
+    }
+    _save_app_settings(normalized)
+    return normalized
+
+
 @app.post('/api/scan/all')
-def scan_all_media_endpoint():
+def scan_all_media_endpoint(force_rescan: bool | None = None):
     folders = _load_scan_folders_config()
     existing = [p for p in folders if os.path.isdir(p)]
 
@@ -274,7 +364,11 @@ def scan_all_media_endpoint():
                 'directory': scan_state['directory'],
             }
 
-    worker = threading.Thread(target=_run_scan_all_job, args=(existing,), daemon=True)
+    worker = threading.Thread(
+        target=_run_scan_all_job,
+        args=(existing, _should_force_rescan(force_rescan)),
+        daemon=True,
+    )
     worker.start()
 
     return {

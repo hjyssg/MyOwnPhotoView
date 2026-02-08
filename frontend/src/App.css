@@ -508,7 +508,6 @@ h1 {
 
 .gallery-item:hover {
   z-index: 40;
-  transform: translateY(-4px);
   box-shadow: 0 16px 28px rgba(74, 94, 138, 0.22);
 }
 
@@ -612,7 +611,6 @@ h1 {
 }
 
 .album-card:hover {
-  transform: translateY(-4px);
   box-shadow: 0 16px 28px rgba(74, 94, 138, 0.22);
 }
 
