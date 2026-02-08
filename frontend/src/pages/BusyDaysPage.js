@@ -46,7 +46,7 @@ function BusyDaysPage() {
   const thresholdText = useMemo(() => {
     if (!meta?.thresholds) return '';
     const t = meta.thresholds;
-    return `阈值：绝对下限 ${t.abs_floor}；相对阈值 ${t.relative}（中位数 × 2.5）；异常阈值 ${t.outlier}（Q3 + 1.5×IQR）`;
+    return `阈值：绝对下限 ${t.abs_floor}；相对阈值 ${t.relative}（中位数 × 2.5）；高阈值 ${t.outlier}`;
   }, [meta]);
 
   return (
