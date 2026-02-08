@@ -61,6 +61,7 @@
 }
 
 .close-btn,
+.info-btn,
 .prev-btn,
 .next-btn {
   position: absolute;
@@ -80,6 +81,7 @@
 }
 
 .close-btn:hover,
+.info-btn:hover,
 .prev-btn:hover,
 .next-btn:hover {
   background: rgba(255, 255, 255, 0.15);
@@ -88,6 +90,40 @@
 .close-btn {
   top: 30px;
   right: 30px;
+}
+
+.info-btn {
+  top: 30px;
+  right: 102px;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.lightbox-info-panel {
+  position: absolute;
+  top: 100px;
+  right: 30px;
+  width: min(460px, calc(100vw - 60px));
+  max-height: min(60vh, 520px);
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  z-index: 2150;
+}
+
+.lightbox-info-panel .meta-row {
+  margin-bottom: 8px;
+  line-height: 1.4;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.lightbox-info-panel .meta-row:last-child {
+  margin-bottom: 0;
 }
 
 .prev-btn {

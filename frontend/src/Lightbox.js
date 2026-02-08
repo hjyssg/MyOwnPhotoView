@@ -1,8 +1,39 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './Lightbox.css';
+
+function formatFileSize(bytes) {
+  const value = Number(bytes);
+  if (!Number.isFinite(value) || value <= 0) return 'Unknown';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let idx = 0;
+  let size = value;
+  while (size >= 1024 && idx < units.length - 1) {
+    size /= 1024;
+    idx += 1;
+  }
+  return `${size.toFixed(size >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+}
+
+function formatDateTime(value) {
+  if (!value) return 'Unknown';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+}
 
 const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev }) => {
   const videoRef = useRef(null);
+  const [showInfo, setShowInfo] = useState(false);
+
+  useEffect(() => {
+    setShowInfo(false);
+  }, [item?.id]);
 
   useEffect(() => {
     if (!item || item.media_type !== 'image' || !items.length) return;
@@ -45,8 +76,31 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev 
     <div className="lightbox-backdrop" onClick={onClose}>
       <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
         <button className="close-btn" onClick={onClose}>×</button>
+        <button
+          className="info-btn"
+          onClick={() => setShowInfo((v) => !v)}
+          aria-label="显示信息"
+          title="显示信息"
+        >
+          i
+        </button>
         <button className="prev-btn" onClick={onPrev}>‹</button>
         <button className="next-btn" onClick={onNext}>›</button>
+
+        {showInfo && (
+          <div className="lightbox-info-panel">
+            <div className="meta-row"><strong>Path:</strong> {item.filepath || 'Unknown'}</div>
+            <div className="meta-row"><strong>Time:</strong> {formatDateTime(item.created_at)}</div>
+            <div className="meta-row">
+              <strong>Type:</strong> {item.media_type || 'unknown'} · {item.source_type || 'unknown'}
+            </div>
+            <div className="meta-row"><strong>Size:</strong> {formatFileSize(item.size)}</div>
+            {!!item.location_name && <div className="meta-row"><strong>Location:</strong> {item.location_name}</div>}
+            {item.media_type === 'video' && (
+              <div className="meta-row"><strong>Duration:</strong> {Math.floor(item.duration || 0)}s</div>
+            )}
+          </div>
+        )}
 
         {item.media_type === 'image' ? (
           <img 

@@ -1,48 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React from 'react';
 import LazyImage from './LazyImage';
 
-function formatFileSize(bytes) {
-  const value = Number(bytes);
-  if (!Number.isFinite(value) || value <= 0) return 'Unknown';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let idx = 0;
-  let size = value;
-  while (size >= 1024 && idx < units.length - 1) {
-    size /= 1024;
-    idx += 1;
-  }
-  return `${size.toFixed(size >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
-}
-
-function formatDateTime(value) {
-  if (!value) return 'Unknown';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return String(value);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  const ss = String(d.getSeconds()).padStart(2, '0');
-  return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
-}
-
 function MediaCard({ item, onClick, formatDuration, imageStyle }) {
-  const cardRef = useRef(null);
-  const [panelSide, setPanelSide] = useState('right');
-
-  const handleMouseEnter = () => {
-    const el = cardRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const panelWidth = 380;
-    const gap = 12;
-    const canShowRight = rect.right + gap + panelWidth < window.innerWidth;
-    setPanelSide(canShowRight ? 'right' : 'left');
-  };
-
   return (
-    <div className="gallery-item" onClick={onClick} ref={cardRef} onMouseEnter={handleMouseEnter}>
+    <div className="gallery-item" onClick={onClick}>
       <div className="media-visual">
         <LazyImage
           src={item.thumbnail_path ? `/${item.thumbnail_path}` : `/api/media/image/${item.id}`}
@@ -55,10 +16,10 @@ function MediaCard({ item, onClick, formatDuration, imageStyle }) {
             <span className="duration">{formatDuration(item.duration)}</span>
           </div>
         )}
-        <span className="source-badge">{item.source_type}</span>
+        {/* <span className="source-badge">{item.source_type}</span> */}
       </div>
 
-      <div
+      {/* <div
         className={`media-hover-card ${panelSide === 'left' ? 'side-left' : 'side-right'}`}
         aria-hidden="true"
       >
@@ -74,7 +35,7 @@ function MediaCard({ item, onClick, formatDuration, imageStyle }) {
         {item.media_type === 'video' && (
           <div className="meta-row"><strong>Duration:</strong> {formatDuration(item.duration)}</div>
         )}
-      </div>
+      </div> */}
     </div>
   );
 }
