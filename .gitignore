@@ -209,7 +209,9 @@ __marimo__/
 
 cache/
 tmp_test_media_500/
+tmp_profile_sample_1000/
 
 /media_gallery.db
 /backend/data/scan_folders.json
 /backend/data/scan_folders.json
+
