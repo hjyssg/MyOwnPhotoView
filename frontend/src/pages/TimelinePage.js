@@ -7,9 +7,8 @@ function TimelinePage({
   sourceMedia,
   displayedMedia,
   mediaLoading,
-  activeFilter,
-  setActiveFilter,
-  smartAlbums,
+  activeFilters,
+  onToggleFilter,
   expandedDates,
   toggleDate,
   openLightboxWithList,
@@ -34,11 +33,8 @@ function TimelinePage({
   return (
     <div className="gallery-container">
       <TopControlBar
-        activeFilter={activeFilter?.name || 'all'}
-        onFilterChange={(filterName) => {
-          if (filterName === 'all') setActiveFilter(null);
-          else setActiveFilter({ name: filterName, items: smartAlbums[filterName] });
-        }}
+        activeFilters={activeFilters}
+        onFilterChange={onToggleFilter}
         groupBy={groupBy}
         onGroupByChange={handleGroupByChange}
       />

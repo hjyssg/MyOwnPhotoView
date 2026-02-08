@@ -13,7 +13,20 @@ import LocationDetailPage from './pages/LocationDetailPage';
 import SettingsPage from './pages/SettingsPage';
 import BusyDaysPage from './pages/BusyDaysPage';
 
+const AVAILABLE_FILTER_KEYS = ['camera', 'screenshot', 'video', 'etc'];
+
 function AppContent() {
+  const matchesFilter = useCallback((item, filterKey) => {
+    if (filterKey === 'video') return item.media_type === 'video';
+    if (filterKey === 'camera') return item.source_type === 'camera';
+    if (filterKey === 'screenshot') return item.source_type === 'screenshot';
+    if (filterKey === 'etc') {
+      const source = item.source_type;
+      return item.media_type !== 'video' && source !== 'camera' && source !== 'screenshot';
+    }
+    return false;
+  }, []);
+
   const location = useLocation();
   const [media, setMedia] = useState([]);
   const [mediaLoading, setMediaLoading] = useState(true);
@@ -22,7 +35,7 @@ function AppContent() {
   const [lightboxItems, setLightboxItems] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [toast, setToast] = useState(null);
-  const [activeFilter, setActiveFilter] = useState(null);
+  const [activeFilters, setActiveFilters] = useState(new Set());
   const [expandedDates, setExpandedDates] = useState(new Set());
 
   const loaderRef = useRef(null);
@@ -46,9 +59,22 @@ function AppContent() {
       screenshot: media.filter((m) => m.source_type === 'screenshot'),
       web: media.filter((m) => m.source_type === 'web'),
       video: media.filter((m) => m.media_type === 'video'),
+      etc: media.filter(
+        (m) => m.media_type !== 'video' && m.source_type !== 'camera' && m.source_type !== 'screenshot'
+      ),
     }),
     [media]
   );
+
+  const filteredSourceMedia = useMemo(() => {
+    if (!activeFilters.size) return media;
+    return media.filter((item) => {
+      for (const key of activeFilters) {
+        if (matchesFilter(item, key)) return true;
+      }
+      return false;
+    });
+  }, [media, activeFilters, matchesFilter]);
 
   const fetchMedia = useCallback(async () => {
     setMediaLoading(true);
@@ -104,22 +130,16 @@ function AppContent() {
 
   useEffect(() => {
     pageRef.current = 1;
-    if (activeFilter) {
-      setDisplayedMedia(activeFilter.items.slice(0, itemsPerPage));
-    } else {
-      setDisplayedMedia(media.slice(0, itemsPerPage));
-    }
-  }, [activeFilter, media]);
+    setDisplayedMedia(filteredSourceMedia.slice(0, itemsPerPage));
+  }, [filteredSourceMedia]);
 
   const loadMore = useCallback(() => {
-    const sourceList = activeFilter ? activeFilter.items : media;
     pageRef.current += 1;
-    setDisplayedMedia(sourceList.slice(0, pageRef.current * itemsPerPage));
-  }, [activeFilter, media]);
+    setDisplayedMedia(filteredSourceMedia.slice(0, pageRef.current * itemsPerPage));
+  }, [filteredSourceMedia]);
 
   useEffect(() => {
-    const sourceList = activeFilter ? activeFilter.items : media;
-    if (!loaderRef.current || displayedMedia.length >= sourceList.length) return undefined;
+    if (!loaderRef.current || displayedMedia.length >= filteredSourceMedia.length) return undefined;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -133,7 +153,7 @@ function AppContent() {
     const currentLoader = loaderRef.current;
     observer.observe(currentLoader);
     return () => observer.unobserve(currentLoader);
-  }, [displayedMedia.length, media, activeFilter, loadMore]);
+  }, [displayedMedia.length, filteredSourceMedia.length, loadMore]);
 
   const openLightboxWithList = useCallback((items, index) => {
     if (!items?.length) return;
@@ -165,13 +185,6 @@ function AppContent() {
         'file';
 
       setMedia((prev) => prev.filter((m) => m.id !== itemId));
-      if (activeFilter) {
-        setActiveFilter((prev) => {
-          if (!prev) return prev;
-          const nextItems = prev.items.filter((m) => m.id !== itemId);
-          return { ...prev, items: nextItems };
-        });
-      }
 
       const idx = lightboxItems.findIndex((m) => m.id === itemId);
       if (idx < 0) {
@@ -194,8 +207,20 @@ function AppContent() {
       showToast(`Moved to recycle bin: ${filename}`);
       return true;
     },
-    [activeFilter, lightboxItems, media, showToast]
+    [lightboxItems, media, showToast]
   );
+
+  const handleToggleFilter = useCallback((filterKey) => {
+    setActiveFilters((prev) => {
+      if (filterKey === 'all') return new Set();
+      if (!AVAILABLE_FILTER_KEYS.includes(filterKey)) return prev;
+
+      const next = new Set(prev);
+      if (next.has(filterKey)) next.delete(filterKey);
+      else next.add(filterKey);
+      return next;
+    });
+  }, []);
 
   const showNext = useCallback(() => {
     if (!lightboxItems.length) return;
@@ -225,7 +250,7 @@ function AppContent() {
     setExpandedDates(next);
   };
 
-  const currentSourceList = activeFilter ? activeFilter.items : media;
+  const currentSourceList = filteredSourceMedia;
   const hasMore = displayedMedia.length < currentSourceList.length;
 
   useEffect(() => {
@@ -281,9 +306,8 @@ function AppContent() {
               sourceMedia={currentSourceList}
               displayedMedia={displayedMedia}
               mediaLoading={mediaLoading}
-              activeFilter={activeFilter}
-              setActiveFilter={setActiveFilter}
-              smartAlbums={smartAlbums}
+              activeFilters={activeFilters}
+              onToggleFilter={handleToggleFilter}
               expandedDates={expandedDates}
               toggleDate={toggleDate}
               openLightboxWithList={openLightboxWithList}

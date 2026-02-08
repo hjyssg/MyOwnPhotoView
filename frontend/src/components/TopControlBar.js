@@ -5,6 +5,7 @@ const FILTER_OPTIONS = [
   { key: 'camera', label: 'CAMERA' },
   { key: 'screenshot', label: 'SCREENSHOT' },
   { key: 'video', label: 'VIDEO' },
+  { key: 'etc', label: 'ETC' },
 ];
 
 const GROUP_OPTIONS = [
@@ -13,14 +14,29 @@ const GROUP_OPTIONS = [
   { key: 'year', label: '按年' },
 ];
 
-function TopControlBar({ activeFilter = 'all', onFilterChange, groupBy = 'day', onGroupByChange }) {
+function TopControlBar({
+  activeFilter = 'all',
+  activeFilters = null,
+  onFilterChange,
+  groupBy = 'day',
+  onGroupByChange,
+}) {
+  const selectedFilters = activeFilters instanceof Set
+    ? activeFilters
+    : new Set(activeFilter && activeFilter !== 'all' ? [activeFilter] : []);
+
+  const isFilterActive = (filterKey) => {
+    if (filterKey === 'all') return selectedFilters.size === 0;
+    return selectedFilters.has(filterKey);
+  };
+
   return (
     <div className="timeline-toolbar">
       <div className="timeline-filters">
         {FILTER_OPTIONS.map((filter) => (
           <button
             key={filter.key}
-            className={activeFilter === filter.key ? 'active' : ''}
+            className={isFilterActive(filter.key) ? 'active' : ''}
             onClick={() => onFilterChange?.(filter.key)}
           >
             {filter.label}
