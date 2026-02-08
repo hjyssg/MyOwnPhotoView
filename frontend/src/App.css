@@ -37,7 +37,7 @@ body {
 }
 
 .App-header {
-  position: sticky;
+  /* position: sticky; */
   top: 10px;
   z-index: 1000;
   margin: 14px auto 0;
