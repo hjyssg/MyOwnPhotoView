@@ -20,6 +20,7 @@ function TopControlBar({
   onFilterChange,
   groupBy = 'day',
   onGroupByChange,
+  hideGroupBy = false,
 }) {
   const selectedFilters = activeFilters instanceof Set
     ? activeFilters
@@ -44,17 +45,19 @@ function TopControlBar({
         ))}
       </div>
 
-      <div className="timeline-filters timeline-aggregate-filters">
-        {GROUP_OPTIONS.map((mode) => (
-          <button
-            key={mode.key}
-            className={groupBy === mode.key ? 'active' : ''}
-            onClick={() => onGroupByChange?.(mode.key)}
-          >
-            {mode.label}
-          </button>
-        ))}
-      </div>
+      {!hideGroupBy && (
+        <div className="timeline-filters timeline-aggregate-filters">
+          {GROUP_OPTIONS.map((mode) => (
+            <button
+              key={mode.key}
+              className={groupBy === mode.key ? 'active' : ''}
+              onClick={() => onGroupByChange?.(mode.key)}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

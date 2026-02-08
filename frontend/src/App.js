@@ -383,6 +383,7 @@ function AppContent() {
               openLightboxWithList={openLightboxWithList}
               formatDuration={formatDuration}
               granularity="day"
+              matchesFilter={matchesFilter}
             />
           }
         />
@@ -394,6 +395,7 @@ function AppContent() {
               openLightboxWithList={openLightboxWithList}
               formatDuration={formatDuration}
               granularity="month"
+              matchesFilter={matchesFilter}
             />
           }
         />
@@ -405,6 +407,7 @@ function AppContent() {
               openLightboxWithList={openLightboxWithList}
               formatDuration={formatDuration}
               granularity="year"
+              matchesFilter={matchesFilter}
             />
           }
         />
@@ -416,6 +419,7 @@ function AppContent() {
               openLightboxWithList={openLightboxWithList}
               formatDuration={formatDuration}
               granularity="day"
+              matchesFilter={matchesFilter}
             />
           }
         />
