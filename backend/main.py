@@ -46,6 +46,13 @@ scan_lock = threading.Lock()
 scan_state = {
     'is_running': False,
     'directory': None,
+    'current_folder': None,
+    'current_file': None,
+    'processed_files': 0,
+    'total_files': 0,
+    'current_folder_index': 0,
+    'total_folders': 0,
+    'stats': None,
     'started_at': None,
     'finished_at': None,
     'message': 'idle',
@@ -160,6 +167,13 @@ def _run_scan_job(directory: str, force_rescan: bool = False):
     _update_scan_state(
         is_running=True,
         directory=directory,
+        current_folder=directory,
+        current_file=None,
+        processed_files=0,
+        total_files=0,
+        current_folder_index=1,
+        total_folders=1,
+        stats=None,
         started_at=_now_iso(),
         finished_at=None,
         message='running',
@@ -168,11 +182,29 @@ def _run_scan_job(directory: str, force_rescan: bool = False):
 
     db = SessionLocal()
     try:
-        scan_directory(directory, db, force_rescan=force_rescan)
-        _update_scan_state(is_running=False, finished_at=_now_iso(), message='completed')
+        def on_progress(payload: dict):
+            _update_scan_state(
+                current_folder=directory,
+                **payload,
+            )
+
+        stats = scan_directory(
+            directory,
+            db,
+            force_rescan=force_rescan,
+            progress_callback=on_progress,
+        )
+        _update_scan_state(
+            is_running=False,
+            current_file=None,
+            finished_at=_now_iso(),
+            message='completed',
+            stats=stats,
+        )
     except Exception as e:
         _update_scan_state(
             is_running=False,
+            current_file=None,
             finished_at=_now_iso(),
             message='failed',
             error=str(e),
@@ -186,6 +218,13 @@ def _run_scan_all_job(directories: list[str], force_rescan: bool = False):
     _update_scan_state(
         is_running=True,
         directory=f'multi ({total})',
+        current_folder=None,
+        current_file=None,
+        processed_files=0,
+        total_files=0,
+        current_folder_index=0,
+        total_folders=total,
+        stats=None,
         started_at=_now_iso(),
         finished_at=None,
         message='running',
@@ -194,13 +233,44 @@ def _run_scan_all_job(directories: list[str], force_rescan: bool = False):
 
     db = SessionLocal()
     try:
+        summary = {
+            'added': 0,
+            'updated': 0,
+            'skipped': 0,
+            'deleted': 0,
+            'processed_files': 0,
+            'total_files': 0,
+        }
+
         for idx, directory in enumerate(directories, start=1):
-            _update_scan_state(message=f'running {idx}/{total}: {directory}')
-            scan_directory(directory, db, force_rescan=force_rescan)
-        _update_scan_state(is_running=False, finished_at=_now_iso(), message='completed')
+            def on_progress(payload: dict, _directory=directory, _idx=idx):
+                _update_scan_state(
+                    current_folder=_directory,
+                    current_folder_index=_idx,
+                    total_folders=total,
+                    **payload,
+                )
+
+            stats = scan_directory(
+                directory,
+                db,
+                force_rescan=force_rescan,
+                progress_callback=on_progress,
+            )
+            for key in summary.keys():
+                summary[key] += int(stats.get(key, 0))
+
+        _update_scan_state(
+            is_running=False,
+            current_file=None,
+            finished_at=_now_iso(),
+            message='completed',
+            stats=summary,
+        )
     except Exception as e:
         _update_scan_state(
             is_running=False,
+            current_file=None,
             finished_at=_now_iso(),
             message='failed',
             error=str(e),

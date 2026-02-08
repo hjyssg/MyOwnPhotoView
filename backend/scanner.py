@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import subprocess
 import re
+from typing import Callable
 from pathlib import Path
 from functools import lru_cache
 from sqlalchemy.orm import Session
@@ -273,7 +274,12 @@ def _remove_thumbnail_file(item: MediaItem):
             pass
 
 
-def scan_directory(directory: str, db: Session, force_rescan: bool = False):
+def scan_directory(
+    directory: str,
+    db: Session,
+    force_rescan: bool = False,
+    progress_callback: Callable[[dict], None] | None = None,
+):
     directory = os.path.abspath(directory)
     print(f'Scanning directory: {directory}')
     THUMBNAIL_DIR.mkdir(parents=True, exist_ok=True)
@@ -289,12 +295,37 @@ def scan_directory(directory: str, db: Session, force_rescan: bool = False):
     updated_count = 0
     skipped_count = 0
 
+    candidate_files = []
     for root, _, files in os.walk(directory):
         for filename in files:
             filepath = Path(root) / filename
             ext = filepath.suffix.lower()
-            if ext not in SUPPORTED_IMAGE_EXTENSIONS and ext not in SUPPORTED_VIDEO_EXTENSIONS:
-                continue
+            if ext in SUPPORTED_IMAGE_EXTENSIONS or ext in SUPPORTED_VIDEO_EXTENSIONS:
+                candidate_files.append(filepath)
+
+    total_files = len(candidate_files)
+    if progress_callback:
+        progress_callback(
+            {
+                'total_files': total_files,
+                'processed_files': 0,
+                'current_file': None,
+                'message': f'running 0/{total_files}',
+            }
+        )
+
+    for index, filepath in enumerate(candidate_files, start=1):
+            ext = filepath.suffix.lower()
+
+            if progress_callback:
+                progress_callback(
+                    {
+                        'processed_files': index - 1,
+                        'total_files': total_files,
+                        'current_file': str(filepath),
+                        'message': f'running {index - 1}/{total_files}',
+                    }
+                )
 
             try:
                 stat = filepath.stat()
@@ -329,6 +360,15 @@ def scan_directory(directory: str, db: Session, force_rescan: bool = False):
                         create_video_thumbnail(filepath, thumbnail_path)
                         updated_count += 1
                 skipped_count += 1
+                if progress_callback:
+                    progress_callback(
+                        {
+                            'processed_files': index,
+                            'total_files': total_files,
+                            'current_file': abs_filepath,
+                            'message': f'running {index}/{total_files}',
+                        }
+                    )
                 continue
 
             if ext in SUPPORTED_IMAGE_EXTENSIONS:
@@ -374,6 +414,16 @@ def scan_directory(directory: str, db: Session, force_rescan: bool = False):
                     db.add(item)
                     added_count += 1
 
+                if progress_callback:
+                    progress_callback(
+                        {
+                            'processed_files': index,
+                            'total_files': total_files,
+                            'current_file': abs_filepath,
+                            'message': f'running {index}/{total_files}',
+                        }
+                    )
+
             elif ext in SUPPORTED_VIDEO_EXTENSIONS:
                 create_video_thumbnail(filepath, thumbnail_path)
                 duration = get_video_duration(filepath)
@@ -405,6 +455,16 @@ def scan_directory(directory: str, db: Session, force_rescan: bool = False):
                     db.add(item)
                     added_count += 1
 
+                if progress_callback:
+                    progress_callback(
+                        {
+                            'processed_files': index,
+                            'total_files': total_files,
+                            'current_file': abs_filepath,
+                            'message': f'running {index}/{total_files}',
+                        }
+                    )
+
     deleted_count = 0
     for existing_path, item in existing_items.items():
         if existing_path not in seen_paths:
@@ -413,11 +473,32 @@ def scan_directory(directory: str, db: Session, force_rescan: bool = False):
             deleted_count += 1
 
     db.commit()
+    stats = {
+        'added': added_count,
+        'updated': updated_count,
+        'skipped': skipped_count,
+        'deleted': deleted_count,
+        'processed_files': total_files,
+        'total_files': total_files,
+    }
+
+    if progress_callback:
+        progress_callback(
+            {
+                'processed_files': total_files,
+                'total_files': total_files,
+                'current_file': None,
+                'message': f'completed {total_files}/{total_files}',
+                'stats': stats,
+            }
+        )
+
     print(
         'Scan complete. '
         f'Added: {added_count}, Updated: {updated_count}, '
         f'Skipped: {skipped_count}, Deleted: {deleted_count}'
     )
+    return stats
 
 
 def start_scan(directory: str, force_rescan: bool = False):

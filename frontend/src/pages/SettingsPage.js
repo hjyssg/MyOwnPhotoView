@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 
 function SettingsPage({ onScanCompleted, showToast }) {
@@ -17,6 +17,7 @@ function SettingsPage({ onScanCompleted, showToast }) {
     message: 'idle',
     error: null,
   });
+  const prevRunningRef = useRef(false);
 
   const loadFolders = useCallback(async () => {
     try {
@@ -69,6 +70,18 @@ function SettingsPage({ onScanCompleted, showToast }) {
     const timer = setInterval(loadScanStatus, 1500);
     return () => clearInterval(timer);
   }, [scanStatus?.is_running, loadScanStatus]);
+
+  useEffect(() => {
+    const wasRunning = prevRunningRef.current;
+    const isRunning = !!scanStatus?.is_running;
+
+    if (wasRunning && !isRunning) {
+      loadFolders();
+      onScanCompleted?.();
+    }
+
+    prevRunningRef.current = isRunning;
+  }, [scanStatus?.is_running, loadFolders, onScanCompleted]);
 
   const saveFolders = async (nextFolders, toastMessage = 'Scan folders updated') => {
     setIsSyncingConfig(true);
@@ -142,11 +155,13 @@ function SettingsPage({ onScanCompleted, showToast }) {
 
   const runSingleScan = async (folder) => {
     try {
-      await axios.post(`/api/scan?directory=${encodeURIComponent(folder)}`);
-      showToast?.('Scan started', 'success');
+      const res = await axios.post(`/api/scan?directory=${encodeURIComponent(folder)}`);
+      if (res.data?.status === 'running') {
+        showToast?.('已有扫描任务正在运行', 'error');
+      } else {
+        showToast?.('Scan started', 'success');
+      }
       await loadScanStatus();
-      await loadFolders();
-      await onScanCompleted?.();
     } catch (error) {
       console.error('Scan failed', error);
       showToast?.('Scan failed', 'error');
@@ -155,11 +170,13 @@ function SettingsPage({ onScanCompleted, showToast }) {
 
   const runAllScan = async () => {
     try {
-      await axios.post('/api/scan/all');
-      showToast?.('Scan all started', 'success');
+      const res = await axios.post('/api/scan/all');
+      if (res.data?.status === 'running') {
+        showToast?.('已有扫描任务正在运行', 'error');
+      } else {
+        showToast?.('Scan all started', 'success');
+      }
       await loadScanStatus();
-      await loadFolders();
-      await onScanCompleted?.();
     } catch (error) {
       console.error('Scan all failed', error);
       showToast?.('Scan all failed', 'error');
@@ -167,11 +184,75 @@ function SettingsPage({ onScanCompleted, showToast }) {
   };
 
   const statusText = useMemo(() => {
-    if (scanStatus?.is_running) return `Running: ${scanStatus.message || scanStatus.directory || ''}`;
+    const currentFolder = scanStatus?.current_folder || scanStatus?.directory;
+    const processed = Number(scanStatus?.processed_files || 0);
+    const total = Number(scanStatus?.total_files || 0);
+
+    if (scanStatus?.is_running) {
+      if (total > 0) {
+        return `Scanning: ${processed}/${total}${currentFolder ? ` | ${currentFolder}` : ''}`;
+      }
+      return `Scanning${currentFolder ? `: ${currentFolder}` : ''}`;
+    }
     if (scanStatus?.message === 'completed') return 'Last scan completed';
     if (scanStatus?.message === 'failed') return `Failed: ${scanStatus.error || 'unknown error'}`;
     return 'Idle';
   }, [scanStatus]);
+
+  const etaText = useMemo(() => {
+    if (!scanStatus?.is_running) return '';
+
+    const startedAtMs = Date.parse(scanStatus?.started_at || '');
+    const processed = Number(scanStatus?.processed_files || 0);
+    const total = Number(scanStatus?.total_files || 0);
+
+    if (!Number.isFinite(startedAtMs) || startedAtMs <= 0) {
+      return '预计完成时间：计算中...';
+    }
+
+    if (!(total > 0) || processed <= 0 || processed >= total) {
+      return '预计完成时间：计算中...';
+    }
+
+    const elapsedSec = Math.max(1, (Date.now() - startedAtMs) / 1000);
+    const speed = processed / elapsedSec;
+    if (!(speed > 0)) {
+      return '预计完成时间：计算中...';
+    }
+
+    const remainingSec = Math.max(1, Math.round((total - processed) / speed));
+    const etaDate = new Date(Date.now() + remainingSec * 1000);
+
+    const hh = String(etaDate.getHours()).padStart(2, '0');
+    const mm = String(etaDate.getMinutes()).padStart(2, '0');
+    const ss = String(etaDate.getSeconds()).padStart(2, '0');
+
+    const remMin = Math.floor(remainingSec / 60);
+    const remSec = remainingSec % 60;
+    return `预计完成时间：${hh}:${mm}:${ss}（约 ${remMin} 分 ${remSec} 秒后）`;
+  }, [scanStatus]);
+
+  const folderMetaText = useCallback(
+    (item) => {
+      const isCurrentFolder =
+        !!scanStatus?.is_running &&
+        !!scanStatus?.current_folder &&
+        item.path.toLowerCase() === String(scanStatus.current_folder).toLowerCase();
+
+      if (isCurrentFolder) {
+        const processed = Number(scanStatus?.processed_files || 0);
+        const total = Number(scanStatus?.total_files || 0);
+        return total > 0 ? `扫描中 ${processed}/${total}` : '扫描中...';
+      }
+
+      if (item.has_scanned) {
+        return `已扫描 (${item.scanned_count})`;
+      }
+
+      return '未扫描（需手动触发）';
+    },
+    [scanStatus]
+  );
 
   return (
     <div className="gallery-container">
@@ -228,6 +309,7 @@ function SettingsPage({ onScanCompleted, showToast }) {
         </div>
 
         <div className="scan-status">Status: {statusText}</div>
+        {!!etaText && <div className="scan-status" style={{ opacity: 0.9 }}>ETA: {etaText}</div>}
 
         {folderItems.length === 0 ? (
           <div className="empty-state">No scan folders configured</div>
@@ -237,7 +319,7 @@ function SettingsPage({ onScanCompleted, showToast }) {
               <li key={`${item.path}-${idx}`} className="scan-folder-item">
                 <span title={item.path}>{item.path}</span>
                 <span className="scan-folder-meta" style={{ marginLeft: 8, fontSize: 12, opacity: 0.85 }}>
-                  {item.has_scanned ? `已扫描 (${item.scanned_count})` : '未扫描（需手动触发）'}
+                  {folderMetaText(item)}
                 </span>
                 <div className="scan-folder-actions">
                   <button onClick={() => runSingleScan(item.path)} disabled={scanStatus?.is_running}>
