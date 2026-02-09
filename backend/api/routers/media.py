@@ -17,6 +17,13 @@ from backend.services.media_service import (
     get_media_item_or_none,
     trash_media_item_by_id,
 )
+from backend.services.thumbnail_service import (
+    SUPPORTED_IMAGE_EXTENSIONS,
+    SUPPORTED_VIDEO_EXTENSIONS,
+    create_video_thumbnail,
+    generate_image_thumbnail,
+    hash_file_sampled,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -181,13 +188,6 @@ async def get_thumbnail(
         thumbnail_path: Existing thumbnail path for fast lookup (optional)
     """
     from backend.database import MediaItem
-    from backend.scanner import (
-        _hash_file_sampled,
-        _process_image_file,
-        create_video_thumbnail,
-        SUPPORTED_IMAGE_EXTENSIONS,
-        SUPPORTED_VIDEO_EXTENSIONS,
-    )
 
     # Fast path: if thumbnail_path is provided, try to find it directly
     if thumbnail_path:
@@ -220,7 +220,7 @@ async def get_thumbnail(
 
     # Determine thumbnail path based on content hash
     try:
-        content_hash = _hash_file_sampled(file_path)
+        content_hash = hash_file_sampled(file_path)
     except Exception as e:
         logger.exception(
             'Failed to hash media file for thumbnail; fallback to stored hash. filepath=%s',
@@ -239,7 +239,7 @@ async def get_thumbnail(
 
         try:
             if ext in SUPPORTED_IMAGE_EXTENSIONS:
-                _process_image_file(file_path, thumbnail_full_path)
+                generate_image_thumbnail(file_path, thumbnail_full_path)
             elif ext in SUPPORTED_VIDEO_EXTENSIONS:
                 create_video_thumbnail(file_path, thumbnail_full_path)
             else:
