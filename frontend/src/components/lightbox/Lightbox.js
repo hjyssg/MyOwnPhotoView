@@ -30,7 +30,6 @@ function formatDateTime(value) {
 const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev, onTrashItem }) => {
   const videoRef = useRef(null);
   const preloadRef = useRef({ timer: null, img: null });
-  const touchRef = useRef({ x: 0, y: 0, active: false });
   const [showInfo, setShowInfo] = useState(false);
   const [isCurrentImageLoaded, setIsCurrentImageLoaded] = useState(false);
   const [scale, setScale] = useState(1);
@@ -154,69 +153,37 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev,
     };
   }, [onClose, onNext, onPrev, item, zoomBy, resetZoom, handleTrash]);
 
-  const handleTouchStart = useCallback((e) => {
-    if (!e.touches || e.touches.length !== 1) {
-      touchRef.current = { x: 0, y: 0, active: false };
-      return;
-    }
-    const touch = e.touches[0];
-    touchRef.current = { x: touch.clientX, y: touch.clientY, active: true };
-  }, []);
-
-  const handleTouchEnd = useCallback(
-    (e) => {
-      if (!touchRef.current.active || !e.changedTouches || e.changedTouches.length !== 1) return;
-
-      const endTouch = e.changedTouches[0];
-      const deltaX = endTouch.clientX - touchRef.current.x;
-      const deltaY = endTouch.clientY - touchRef.current.y;
-      touchRef.current = { x: 0, y: 0, active: false };
-
-      const absX = Math.abs(deltaX);
-      const absY = Math.abs(deltaY);
-      const SWIPE_THRESHOLD = 56;
-
-      if (absX < SWIPE_THRESHOLD || absX <= absY * 1.2) return;
-
-      if (deltaX < 0) onNext();
-      else onPrev();
-    },
-    [onNext, onPrev]
-  );
-
   return (
-    <div
-      className="lightbox-backdrop"
-      onClick={onClose}
-      onWheelCapture={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-    >
+    <div className="lightbox-backdrop" onClick={onClose}>
       <div
         className="lightbox-content"
-        onClick={(e) => e.stopPropagation()}
-        onWheelCapture={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
       >
-        <button className="close-btn" onClick={onClose}>×</button>
+        <button className="close-btn" onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}>×</button>
         <button
           className="info-btn"
-          onClick={() => setShowInfo((v) => !v)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowInfo((v) => !v);
+          }}
           aria-label="显示信息"
           title="显示信息"
         >
           i
         </button>
-        <button className="prev-btn" onClick={onPrev}>‹</button>
-        <button className="next-btn" onClick={onNext}>›</button>
+        <button className="prev-btn" onClick={(e) => {
+          e.stopPropagation();
+          onPrev();
+        }}>‹</button>
+        <button className="next-btn" onClick={(e) => {
+          e.stopPropagation();
+          onNext();
+        }}>›</button>
 
         {showInfo && (
-          <div className="lightbox-info-panel">
+          <div className="lightbox-info-panel" onClick={(e) => e.stopPropagation()}>
             <div className="meta-row"><strong>Path:</strong> {item.filepath || 'Unknown'}</div>
             <div className="meta-row"><strong>Time:</strong> {formatDateTime(item.created_at)}</div>
             <div className="meta-row">
@@ -238,6 +205,7 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev,
             loading="eager"
             fetchPriority="high"
             style={{ transform: `scale(${scale})` }}
+            onClick={(e) => e.stopPropagation()}
             onWheel={(e) => {
               e.preventDefault();
               zoomBy(e.deltaY < 0 ? 0.1 : -0.1);
@@ -255,6 +223,7 @@ const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev,
             controls
             autoPlay
             controlsList="nodownload"
+            onClick={(e) => e.stopPropagation()}
             onError={(e) => {
               console.error('视频加载失败:', item.id, e);
             }}
