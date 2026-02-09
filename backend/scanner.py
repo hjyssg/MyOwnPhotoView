@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import subprocess
 import re
+import logging
 from pathlib import Path
 from functools import lru_cache
 from typing import Callable
@@ -32,6 +33,7 @@ SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic']
 SUPPORTED_VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi']
 THUMBNAIL_DIR = Path(THUMBNAIL_DIR)
 COMMIT_EVERY = 300
+logger = logging.getLogger(__name__)
 
 
 def get_decimal_from_dms(dms, ref):
@@ -115,22 +117,34 @@ def _run_command(command):
 
 
 def create_video_thumbnail(video_path: Path, thumbnail_path: Path):
-    command = [
-        'ffmpeg',
-        '-y',
-        '-ss',
-        '00:00:01',
-        '-i',
-        str(video_path),
-        '-frames:v',
-        '1',
-        str(thumbnail_path),
-    ]
-    result = _run_command(command)
-    if result is None:
-        return
-    if result.returncode != 0:
-        fallback_command = [
+    def _thumbnail_ready() -> bool:
+        return thumbnail_path.exists() and thumbnail_path.stat().st_size > 0
+
+    # 先按帧抓图：短视频优先第2帧，其次第1帧
+    attempts = [
+        [
+            'ffmpeg',
+            '-y',
+            '-i',
+            str(video_path),
+            '-vf',
+            'select=eq(n\\,1)',
+            '-vframes',
+            '1',
+            str(thumbnail_path),
+        ],
+        [
+            'ffmpeg',
+            '-y',
+            '-i',
+            str(video_path),
+            '-vf',
+            'select=eq(n\\,0)',
+            '-vframes',
+            '1',
+            str(thumbnail_path),
+        ],
+        [
             'ffmpeg',
             '-y',
             '-ss',
@@ -140,8 +154,28 @@ def create_video_thumbnail(video_path: Path, thumbnail_path: Path):
             '-frames:v',
             '1',
             str(thumbnail_path),
-        ]
-        _run_command(fallback_command)
+        ],
+    ]
+
+    last_err = ''
+    for command in attempts:
+        result = _run_command(command)
+        if result is None:
+            last_err = 'ffmpeg not found'
+            break
+
+        if _thumbnail_ready():
+            return
+
+        if result.stderr:
+            last_err = result.stderr.strip()
+
+    logger.error(
+        'Failed to generate video thumbnail. video_path=%s thumbnail_path=%s last_err=%s',
+        str(video_path),
+        str(thumbnail_path),
+        (last_err[:500] if last_err else 'unknown error'),
+    )
 
 
 def get_video_duration(video_path: Path) -> int:
@@ -315,8 +349,34 @@ def _process_image_file(filepath: Path, thumbnail_path: Path):
     with Image.open(filepath) as img_raw:
         exif_bytes = img_raw.info.get('exif', b'')
         img = ImageOps.exif_transpose(img_raw)
+        original_mode = img.mode
+
+        if img.mode in ('RGBA', 'LA'):
+            rgba = img.convert('RGBA')
+            background = Image.new('RGB', rgba.size, (255, 255, 255))
+            background.paste(rgba, mask=rgba.split()[-1])
+            img = background
+        elif img.mode == 'P':
+            if 'transparency' in img.info:
+                rgba = img.convert('RGBA')
+                background = Image.new('RGB', rgba.size, (255, 255, 255))
+                background.paste(rgba, mask=rgba.split()[-1])
+                img = background
+            else:
+                img = img.convert('RGB')
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+
         img.thumbnail((400, 400))
-        img.save(thumbnail_path, 'JPEG')
+        img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
+
+        if original_mode != img.mode:
+            logger.debug(
+                'Thumbnail mode converted for JPEG save. filepath=%s mode_before=%s mode_after=%s',
+                str(filepath),
+                original_mode,
+                img.mode,
+            )
 
     exif_created_at, gps, model = _extract_exif_info(exif_bytes)
     lat, lon = gps if gps else (None, None)

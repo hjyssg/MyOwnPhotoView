@@ -1,4 +1,5 @@
 import datetime
+import logging
 import mimetypes
 import os
 import re
@@ -18,6 +19,7 @@ from backend.services.media_service import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 THUMBNAIL_DIR_PATH = Path(THUMBNAIL_DIR)
 
@@ -219,7 +221,12 @@ async def get_thumbnail(
     # Determine thumbnail path based on content hash
     try:
         content_hash = _hash_file_sampled(file_path)
-    except Exception:
+    except Exception as e:
+        logger.exception(
+            'Failed to hash media file for thumbnail; fallback to stored hash. filepath=%s',
+            filepath,
+            exc_info=e,
+        )
         content_hash = item.content_hash or 'fallback'
 
     thumbnail_filename = f'{content_hash}.jpg'
@@ -237,11 +244,25 @@ async def get_thumbnail(
                 create_video_thumbnail(file_path, thumbnail_full_path)
             else:
                 raise HTTPException(status_code=400, detail='Unsupported file type')
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f'Failed to generate thumbnail: {e}')
+            logger.exception(
+                'Thumbnail generation raised exception. filepath=%s thumbnail_full_path=%s ext=%s',
+                filepath,
+                str(thumbnail_full_path),
+                ext,
+                exc_info=e,
+            )
+            raise HTTPException(status_code=500, detail='Failed to generate thumbnail')
 
     # Check again after generation attempt
     if not thumbnail_full_path.exists():
+        logger.error(
+            'Thumbnail generation finished but file missing. filepath=%s thumbnail_full_path=%s',
+            filepath,
+            str(thumbnail_full_path),
+        )
         raise HTTPException(status_code=500, detail='Thumbnail generation failed')
 
     # Return thumbnail with caching
