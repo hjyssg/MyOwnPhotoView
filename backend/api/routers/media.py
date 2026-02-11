@@ -17,6 +17,7 @@ from backend.services.media_service import (
     get_media_item_or_none,
     trash_media_item_by_id,
 )
+from backend.scanner import get_video_duration
 from backend.services.thumbnail_service import (
     SUPPORTED_IMAGE_EXTENSIONS,
     SUPPORTED_VIDEO_EXTENSIONS,
@@ -97,6 +98,32 @@ def get_media_by_album(name: str, db: Session = Depends(get_db)):
 
     items = query.order_by(MediaItem.created_at.desc()).all()
     return [media_item_to_dict(item) for item in items]
+
+
+@router.get('/api/media/{item_id}/duration')
+def get_media_duration(item_id: str, db: Session = Depends(get_db)):
+    """Lazy duration fetch: returns cached duration or computes it on-demand for videos."""
+    from backend.database import MediaItem
+
+    item = db.query(MediaItem).filter(MediaItem.id == item_id, MediaItem.is_deleted == 0).first()
+    if not item:
+        raise HTTPException(status_code=404, detail='Media item not found')
+    if item.media_type != 'video':
+        return {'duration': None}
+
+    # Return cached duration if available
+    if item.duration is not None:
+        return {'duration': item.duration}
+
+    # Compute on-demand
+    file_path = Path(item.filepath)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail='Video file not found')
+
+    duration = get_video_duration(file_path)
+    item.duration = duration
+    db.commit()
+    return {'duration': duration}
 
 
 @router.get('/api/media/image/{item_id}')

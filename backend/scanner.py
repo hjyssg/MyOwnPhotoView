@@ -13,7 +13,6 @@ from backend.database import MediaItem, SessionLocal
 from backend.services.thumbnail_service import (
     SUPPORTED_IMAGE_EXTENSIONS,
     SUPPORTED_VIDEO_EXTENSIONS,
-    create_video_thumbnail,
     generate_image_thumbnail,
     hash_file_sampled,
 )
@@ -331,8 +330,9 @@ def scan_directory(
         db_item = existing_items.get(abs_filepath)
 
         # Check if thumbnail exists (handle case where thumbnail was deleted but DB record remains)
+        # For videos, thumbnails are generated lazily, so skip this check
         thumbnail_exists = True
-        if db_item and db_item.thumbnail_path:
+        if db_item and db_item.thumbnail_path and ext not in SUPPORTED_VIDEO_EXTENSIONS:
             thumb_full_path = THUMBNAIL_DIR / Path(db_item.thumbnail_path).name
             thumbnail_exists = thumb_full_path.exists()
 
@@ -416,9 +416,9 @@ def scan_directory(
                 dirty_ops += 1
 
         elif ext in SUPPORTED_VIDEO_EXTENSIONS:
-            if not thumbnail_path.exists() or force_rescan:
-                create_video_thumbnail(filepath, thumbnail_path)
-            duration = get_video_duration(filepath)
+            # Lazy generation: skip thumbnail & duration during scan
+            # They will be generated on-demand when the user views them
+            duration = None
 
             if db_item:
                 db_item.media_type = 'video'
