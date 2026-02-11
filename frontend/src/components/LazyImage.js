@@ -1,151 +1,165 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const IMAGE_PLACEHOLDER =
-  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect width=%22200%22 height=%22200%22 fill=%22%23161616%22/%3E%3C/svg%3E';
 const IMAGE_FALLBACK =
   'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect width=%22200%22 height=%22200%22 fill=%22%23222%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 fill=%22%23555%22 font-family=%22system-ui%22 font-size=%2214%22%3ENo Preview%3C/text%3E%3C/svg%3E';
-const MOUNT_DELAY_MS = 80;
-const MAX_CONCURRENT_IMAGE_LOADS = 6;
 
-let activeImageLoads = 0;
-const pendingSlotResolvers = [];
+const MAX_CONCURRENT = 6;
 
-function acquireImageLoadSlot() {
+// ---------------------------------------------------------------------------
+// Global concurrency limiter with LIFO semantics + cancellation awareness
+// ---------------------------------------------------------------------------
+let activeCount = 0;
+const waitQueue = []; // { resolve, isCanceled }
+
+function acquireSlot(isCanceled) {
   return new Promise((resolve) => {
-    if (activeImageLoads < MAX_CONCURRENT_IMAGE_LOADS) {
-      activeImageLoads += 1;
-      resolve(() => releaseImageLoadSlot());
+    if (activeCount < MAX_CONCURRENT) {
+      activeCount += 1;
+      resolve();
       return;
     }
-
-    pendingSlotResolvers.push(resolve);
+    waitQueue.push({ resolve, isCanceled });
   });
 }
 
-function releaseImageLoadSlot() {
-  if (activeImageLoads > 0) {
-    activeImageLoads -= 1;
-  }
+function releaseSlot() {
+  if (activeCount > 0) activeCount -= 1;
 
-  if (pendingSlotResolvers.length > 0 && activeImageLoads < MAX_CONCURRENT_IMAGE_LOADS) {
-    activeImageLoads += 1;
-    // 后来者优先：使用 LIFO（栈）而不是 FIFO（队列）
-    const nextResolve = pendingSlotResolvers.pop();
-    nextResolve(() => releaseImageLoadSlot());
+  // Drain canceled entries from the back (LIFO) and wake the first live one
+  while (waitQueue.length > 0) {
+    const entry = waitQueue.pop();
+    if (entry.isCanceled()) continue;
+    activeCount += 1;
+    entry.resolve();
+    return;
   }
 }
 
+// ---------------------------------------------------------------------------
+// LazyImage component
+// ---------------------------------------------------------------------------
 function LazyImage({ src, alt, className, style }) {
-  const [readyToMountImage, setReadyToMountImage] = useState(false);
-  const [shouldRenderImage, setShouldRenderImage] = useState(false);
+  const [blobUrl, setBlobUrl] = useState(null);
   const [failed, setFailed] = useState(false);
-  const placeholderRef = useRef(null);
-  const loadTimerRef = useRef(null);
-  const releaseSlotRef = useRef(null);
+  const containerRef = useRef(null);
+  const abortRef = useRef(null);
+  const loadedRef = useRef(false); // tracks if current src is already loaded
 
+  // Reset when src changes
   useEffect(() => {
-    if (releaseSlotRef.current) {
-      releaseSlotRef.current();
-      releaseSlotRef.current = null;
+    loadedRef.current = false;
+
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
     }
 
-    setReadyToMountImage(false);
-    setShouldRenderImage(false);
+    setBlobUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     setFailed(false);
   }, [src]);
 
+  // Main loading effect — driven by IntersectionObserver
   useEffect(() => {
-    if (readyToMountImage) return undefined;
+    const node = containerRef.current;
+    if (!node || !src) return undefined;
 
-    const node = placeholderRef.current;
-    if (!node) return undefined;
+    let canceled = false;
+    const isCanceled = () => canceled;
+
+    const startLoad = async () => {
+      if (loadedRef.current || canceled) return;
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      await acquireSlot(isCanceled);
+
+      if (canceled) {
+        releaseSlot();
+        return;
+      }
+
+      try {
+        const resp = await fetch(src, { signal: controller.signal });
+        if (!resp.ok) throw new Error(resp.statusText);
+        const blob = await resp.blob();
+
+        if (canceled) return; // finally will releaseSlot
+
+        const url = URL.createObjectURL(blob);
+        loadedRef.current = true;
+        setBlobUrl(url);
+      } catch (err) {
+        if (err.name !== 'AbortError' && !canceled) {
+          setFailed(true);
+        }
+      } finally {
+        releaseSlot();
+      }
+    };
+
+    const cancel = () => {
+      canceled = true;
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
+    };
+
     let observer;
-
-    const clearLoadTimer = () => {
-      if (!loadTimerRef.current) return;
-      clearTimeout(loadTimerRef.current);
-      loadTimerRef.current = null;
-    };
-
-    const scheduleRenderImage = () => {
-      if (loadTimerRef.current) return;
-      loadTimerRef.current = setTimeout(() => {
-        setReadyToMountImage(true);
-        clearLoadTimer();
-        observer?.disconnect();
-      }, MOUNT_DELAY_MS);
-    };
-
-    if (typeof IntersectionObserver === 'undefined') {
-      scheduleRenderImage();
-    } else {
+    if (typeof IntersectionObserver !== 'undefined') {
       observer = new IntersectionObserver(
         (entries) => {
           const entry = entries[0];
           if (!entry) return;
 
           if (entry.isIntersecting) {
-            scheduleRenderImage();
-          } else {
-            clearLoadTimer();
+            if (!loadedRef.current && canceled) {
+              // Re-entered viewport after being canceled — allow retry
+              canceled = false;
+            }
+            startLoad();
+          } else if (!loadedRef.current) {
+            // Left viewport before load finished — abort
+            cancel();
           }
         },
-        { root: null, rootMargin: '20px 0px', threshold: 0.25 }
+        { root: null, rootMargin: '200px 0px', threshold: 0.01 }
       );
-
       observer.observe(node);
+    } else {
+      startLoad();
     }
 
     return () => {
-      clearLoadTimer();
+      cancel();
       observer?.disconnect();
     };
-  }, [readyToMountImage, src]);
+  }, [src]);
 
+  // Cleanup blob URL on unmount
   useEffect(() => {
-    if (!readyToMountImage || shouldRenderImage) return undefined;
-
-    let canceled = false;
-
-    acquireImageLoadSlot().then((release) => {
-      if (canceled) {
-        release();
-        return;
-      }
-
-      releaseSlotRef.current = release;
-      setShouldRenderImage(true);
-    });
-
     return () => {
-      canceled = true;
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
+      setBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
     };
-  }, [readyToMountImage, shouldRenderImage]);
+  }, []);
 
-  useEffect(
-    () => () => {
-      if (!releaseSlotRef.current) return;
-      releaseSlotRef.current();
-      releaseSlotRef.current = null;
-    },
-    []
-  );
-
-  const finishCurrentLoad = () => {
-    if (!releaseSlotRef.current) return;
-    releaseSlotRef.current();
-    releaseSlotRef.current = null;
-  };
-
-  if (!shouldRenderImage) {
+  if (!blobUrl) {
     return (
       <div
-        ref={placeholderRef}
+        ref={containerRef}
         className={className}
-        style={{
-          ...style,
-          backgroundColor: '#161616',
-        }}
+        style={{ ...style, backgroundColor: '#161616' }}
         role="img"
         aria-label={alt}
       />
@@ -154,17 +168,12 @@ function LazyImage({ src, alt, className, style }) {
 
   return (
     <img
-      src={failed ? IMAGE_FALLBACK : src || IMAGE_PLACEHOLDER}
+      ref={containerRef}
+      src={failed ? IMAGE_FALLBACK : blobUrl}
       alt={alt}
       className={className}
       style={style}
-      loading="lazy"
       decoding="async"
-      onLoad={finishCurrentLoad}
-      onError={() => {
-        setFailed(true);
-        finishCurrentLoad();
-      }}
     />
   );
 }
