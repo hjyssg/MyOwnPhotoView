@@ -192,7 +192,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent 45%);
+  background: rgba(0, 0, 0, 0.15);
   pointer-events: none;
 }
 
@@ -321,4 +321,9 @@
   letter-spacing: 0.4em;
   padding: 1.2rem 0 0.4rem;
   user-select: none;
+}
+
+/* Placeholder for lazy-loading images */
+.lazy-image-placeholder {
+  background: #e0e4ec;
 }
