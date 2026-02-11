@@ -1,4 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import YARLightbox from 'yet-another-react-lightbox';
+import Video from 'yet-another-react-lightbox/plugins/video';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
+import 'yet-another-react-lightbox/styles.css';
 import './Lightbox.css';
 
 function formatFileSize(bytes) {
@@ -27,210 +31,140 @@ function formatDateTime(value) {
   return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
 }
 
-const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onNext, onPrev, onTrashItem }) => {
-  const videoRef = useRef(null);
-  const preloadRef = useRef({ timer: null, img: null });
+function InfoButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      className="yarl__button yarl-info-btn"
+      onClick={onClick}
+      aria-label="显示信息"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" />
+      </svg>
+    </button>
+  );
+}
+
+function TrashButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      className="yarl__button yarl-trash-btn"
+      onClick={onClick}
+      aria-label="删除"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </svg>
+    </button>
+  );
+}
+
+function InfoPanel({ item }) {
+  if (!item) return null;
+  return (
+    <div className="yarl-info-panel">
+      <div className="meta-row"><strong>Path:</strong> {item.filepath || 'Unknown'}</div>
+      <div className="meta-row"><strong>Time:</strong> {formatDateTime(item.created_at)}</div>
+      <div className="meta-row">
+        <strong>Type:</strong> {item.media_type || 'unknown'} · {item.source_type || 'unknown'}
+      </div>
+      <div className="meta-row"><strong>Size:</strong> {formatFileSize(item.size)}</div>
+      {!!item.location_name && (
+        <div className="meta-row"><strong>Location:</strong> {item.location_name}</div>
+      )}
+      {item.media_type === 'video' && item.duration != null && (
+        <div className="meta-row"><strong>Duration:</strong> {Math.floor(item.duration)}s</div>
+      )}
+    </div>
+  );
+}
+
+const Lightbox = ({ item, items = [], currentIndex = 0, onClose, onTrashItem }) => {
   const [showInfo, setShowInfo] = useState(false);
-  const [isCurrentImageLoaded, setIsCurrentImageLoaded] = useState(false);
-  const [scale, setScale] = useState(1);
-  const [isTrashing, setIsTrashing] = useState(false);
+  const [viewIndex, setViewIndex] = useState(currentIndex);
 
-  const clampScale = useCallback((value) => {
-    const next = Number(value);
-    if (!Number.isFinite(next)) return 1;
-    return Math.min(5, Math.max(0.2, next));
-  }, []);
-
-  const zoomBy = useCallback(
-    (delta) => {
-      setScale((prev) => clampScale(prev + delta));
-    },
-    [clampScale]
+  const slides = useMemo(() =>
+    items.map((mediaItem) => {
+      if (mediaItem.media_type === 'video') {
+        return {
+          type: 'video',
+          sources: [{ src: `/api/media/stream/${mediaItem.id}`, type: 'video/mp4' }],
+          autoPlay: true,
+          controls: true,
+          controlsList: 'nodownload',
+          width: 1920,
+          height: 1080,
+        };
+      }
+      return {
+        src: `/api/media/image/${mediaItem.id}`,
+        alt: mediaItem.filepath || '',
+      };
+    }),
+    [items]
   );
 
-  const resetZoom = useCallback(() => {
-    setScale(1);
-  }, []);
+  const currentMediaItem = items[viewIndex] || item;
 
   const handleTrash = useCallback(async () => {
-    if (!item || !onTrashItem || isTrashing) return;
-    const filename = (item.filepath || '').split(/[\\/]/).pop() || item.id;
+    if (!currentMediaItem || !onTrashItem) return;
+    const filename = (currentMediaItem.filepath || '').split(/[\\/]/).pop() || currentMediaItem.id;
     const confirmed = window.confirm(`确定要将此文件移到回收站吗？\n\n${filename}`);
     if (!confirmed) return;
-    setIsTrashing(true);
-    try {
-      await onTrashItem(item.id);
-    } finally {
-      setIsTrashing(false);
-    }
-  }, [item, onTrashItem, isTrashing]);
+    await onTrashItem(currentMediaItem.id);
+  }, [currentMediaItem, onTrashItem]);
 
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
+  const toggleInfo = useCallback(() => {
+    setShowInfo((v) => !v);
   }, []);
 
-  useEffect(() => {
-    setShowInfo(false);
-    setIsCurrentImageLoaded(false);
-    setScale(1);
-    setIsTrashing(false);
-  }, [item?.id]);
-
-  useEffect(() => {
-    if (!item || item.media_type !== 'image' || !items.length || !isCurrentImageLoaded) return;
-
-    const clearPreload = () => {
-      if (preloadRef.current.timer) {
-        clearTimeout(preloadRef.current.timer);
-      }
-      if (preloadRef.current.img) {
-        preloadRef.current.img.src = '';
-      }
-      preloadRef.current = { timer: null, img: null };
-    };
-
-    const preload = (mediaItem) => {
-      if (!mediaItem || mediaItem.media_type !== 'image') return;
-      const img = new Image();
-      img.decoding = 'async';
-      img.fetchPriority = 'low';
-      img.src = `/api/media/image/${mediaItem.id}`;
-      preloadRef.current.img = img;
-    };
-
-    let offset = 1;
-    let nextImage = null;
-    while (offset < items.length) {
-      const idx = (currentIndex + offset) % items.length;
-      if (items[idx]?.media_type === 'image') {
-        nextImage = items[idx];
-        break;
-      }
-      offset += 1;
-    }
-
-    preloadRef.current.timer = setTimeout(() => preload(nextImage), 120);
-
-    return clearPreload;
-  }, [item, items, currentIndex, isCurrentImageLoaded]);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      } else if (e.key === 'ArrowRight') {
-        onNext();
-      } else if (e.key === 'ArrowLeft') {
-        onPrev();
-      } else if ((e.key === '+' || e.key === '=') && item?.media_type === 'image') {
-        e.preventDefault();
-        zoomBy(0.15);
-      } else if ((e.key === '-' || e.key === '_') && item?.media_type === 'image') {
-        e.preventDefault();
-        zoomBy(-0.15);
-      } else if (e.key === '0' && item?.media_type === 'image') {
-        e.preventDefault();
-        resetZoom();
-      } else if (e.key === 'Delete') {
-        e.preventDefault();
-        handleTrash();
-      } else if (e.key === ' ' && videoRef.current) {
-        e.preventDefault();
-        if (videoRef.current.paused) {
-          videoRef.current.play();
-        } else {
-          videoRef.current.pause();
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [onClose, onNext, onPrev, item, zoomBy, resetZoom, handleTrash]);
+  if (!item) return null;
 
   return (
-    <div className="lightbox-backdrop" onClick={onClose}>
-      <div
-        className="lightbox-content"
-      >
-        <button className="close-btn" onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}>×</button>
-        <button
-          className="info-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowInfo((v) => !v);
-          }}
-          aria-label="显示信息"
-          title="显示信息"
-        >
-          i
-        </button>
-        <button className="prev-btn" onClick={(e) => {
-          e.stopPropagation();
-          onPrev();
-        }}>‹</button>
-        <button className="next-btn" onClick={(e) => {
-          e.stopPropagation();
-          onNext();
-        }}>›</button>
-
-        {showInfo && (
-          <div className="lightbox-info-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="meta-row"><strong>Path:</strong> {item.filepath || 'Unknown'}</div>
-            <div className="meta-row"><strong>Time:</strong> {formatDateTime(item.created_at)}</div>
-            <div className="meta-row">
-              <strong>Type:</strong> {item.media_type || 'unknown'} · {item.source_type || 'unknown'}
-            </div>
-            <div className="meta-row"><strong>Size:</strong> {formatFileSize(item.size)}</div>
-            {!!item.location_name && <div className="meta-row"><strong>Location:</strong> {item.location_name}</div>}
-            {item.media_type === 'video' && (
-              <div className="meta-row"><strong>Duration:</strong> {Math.floor(item.duration || 0)}s</div>
-            )}
-          </div>
-        )}
-
-        {item.media_type === 'image' ? (
-          <img
-            src={`/api/media/image/${item.id}`}
-            alt={item.filepath}
-            decoding="auto"
-            loading="eager"
-            fetchPriority="high"
-            style={{ transform: `scale(${scale})` }}
-            onClick={(e) => e.stopPropagation()}
-            onWheel={(e) => {
-              e.preventDefault();
-              zoomBy(e.deltaY < 0 ? 0.1 : -0.1);
-            }}
-            onDoubleClick={resetZoom}
-            onLoad={() => setIsCurrentImageLoaded(true)}
-            onError={() => {
-              console.error('大图加载失败:', item.id);
-            }}
-          />
-        ) : (
-          <video
-            ref={videoRef}
-            src={`/api/media/stream/${item.id}`}
-            controls
-            autoPlay
-            controlsList="nodownload"
-            onClick={(e) => e.stopPropagation()}
-            onError={(e) => {
-              console.error('视频加载失败:', item.id, e);
-            }}
-          />
-        )}
-      </div>
-    </div>
+    <YARLightbox
+      open
+      close={onClose}
+      index={currentIndex}
+      slides={slides}
+      plugins={[Video, Zoom]}
+      on={{
+        view: ({ index }) => {
+          setViewIndex(index);
+          setShowInfo(false);
+        },
+      }}
+      video={{
+        autoPlay: true,
+        controls: true,
+        controlsList: 'nodownload',
+        playsInline: true,
+      }}
+      carousel={{
+        preload: 2,
+      }}
+      animation={{
+        fade: 300,
+      }}
+      controller={{
+        closeOnBackdropClick: true,
+      }}
+      toolbar={{
+        buttons: [
+          <InfoButton key="info" onClick={toggleInfo} />,
+          <TrashButton key="trash" onClick={handleTrash} />,
+          'close',
+        ],
+      }}
+      render={{
+        slideFooter: () =>
+          showInfo ? <InfoPanel item={currentMediaItem} /> : null,
+      }}
+    />
   );
 };
 

@@ -268,20 +268,6 @@ function AppContent() {
     [activeFilters, location.pathname, location.search, navigate]
   );
 
-  const showNext = useCallback(() => {
-    if (!lightboxItems.length) return;
-    const nextIndex = (currentIndex + 1) % lightboxItems.length;
-    setCurrentIndex(nextIndex);
-    setSelectedItem(lightboxItems[nextIndex]);
-  }, [currentIndex, lightboxItems]);
-
-  const showPrev = useCallback(() => {
-    if (!lightboxItems.length) return;
-    const prevIndex = (currentIndex - 1 + lightboxItems.length) % lightboxItems.length;
-    setCurrentIndex(prevIndex);
-    setSelectedItem(lightboxItems[prevIndex]);
-  }, [currentIndex, lightboxItems]);
-
   const formatDuration = (seconds) => {
     if (!seconds) return '0:00';
     const m = Math.floor(seconds / 60);
@@ -459,8 +445,6 @@ function AppContent() {
           items={lightboxItems}
           currentIndex={currentIndex}
           onClose={closeLightbox}
-          onNext={showNext}
-          onPrev={showPrev}
           onTrashItem={handleTrashItem}
         />
       )}
