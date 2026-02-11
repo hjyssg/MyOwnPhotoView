@@ -314,7 +314,8 @@ function SettingsPage({ onScanCompleted, showToast }) {
 
     const remMin = Math.floor(remainingSec / 60);
     const remSec = remainingSec % 60;
-    return `预计完成时间：${hh}:${mm}:${ss}（约 ${remMin} 分 ${remSec} 秒后）`;
+    const remainingText = remMin > 0 ? `约 ${remMin} 分 ${remSec} 秒后完成` : `约 ${remSec} 秒后完成`;
+    return `预计完成时间：${remainingText}`;
   }, [scanStatus]);
 
   const folderMetaText = useCallback(
